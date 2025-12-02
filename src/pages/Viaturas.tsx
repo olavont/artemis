@@ -294,7 +294,7 @@ export default function Viaturas() {
                     <Label htmlFor="status_operacional">Status Operacional</Label>
                     <Select
                       value={formData.status_operacional}
-                      onValueChange={(value) => setFormData({ ...formData, status_operacional: value })}
+                      onValueChange={(value: string) => setFormData({ ...formData, status_operacional: value as typeof formData.status_operacional })}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione" />
