@@ -155,9 +155,9 @@ export default function Checkin() {
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
-      disponivel: "bg-green-500 text-white",
-      empenhada: "bg-yellow-500 text-white",
-      manutencao: "bg-red-500 text-white",
+      disponivel: "bg-success text-success-foreground",
+      empenhada: "bg-warning text-warning-foreground",
+      manutencao: "bg-danger text-danger-foreground",
     };
     return colors[status] || "bg-muted";
   };
