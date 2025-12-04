@@ -28,7 +28,12 @@ interface UranusGroup {
 }
 
 interface UranusUserResponse {
-  groups?: UranusGroup[]
+  metadata?: { total: number }
+  data?: {
+    groups?: UranusGroup[]
+    [key: string]: unknown
+  }
+  groups?: UranusGroup[] // fallback for direct access
   [key: string]: unknown
 }
 
@@ -62,9 +67,13 @@ async function fetchUranusGroups(accessToken: string, username: string): Promise
     }
 
     const userData: UranusUserResponse = await response.json()
-    console.log('Uranus user data received:', JSON.stringify(userData, null, 2))
+    console.log('Uranus user data received, extracting groups...')
 
-    return userData.groups || []
+    // Handle both response formats: data.groups or groups directly
+    const groups = userData.data?.groups || userData.groups || []
+    console.log('Extracted groups:', JSON.stringify(groups, null, 2))
+
+    return groups
   } catch (error) {
     console.error('Error fetching Uranus user data:', error)
     return []
