@@ -7,10 +7,23 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, Eye, Edit, Trash2 } from "lucide-react";
+import { Plus, Search, Eye, Edit, Trash2, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { isKeycloakUser, proxyFetch, getCurrentUserId } from "@/hooks/useProxyData";
+
+interface ItemViatura {
+  id: string;
+  nome: string;
+  categoria: string;
+  tipo: string;
+}
+
+interface SelectedItem {
+  item_viatura_id: string;
+  quantidade: number;
+  nome: string;
+}
 
 export default function Viaturas() {
   const [viaturas, setViaturas] = useState<any[]>([]);
@@ -21,6 +34,8 @@ export default function Viaturas() {
   const [selectedViatura, setSelectedViatura] = useState<any>(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [isGestor, setIsGestor] = useState(false);
+  const [availableItems, setAvailableItems] = useState<ItemViatura[]>([]);
+  const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
   const { toast } = useToast();
 
   const [formData, setFormData] = useState({
@@ -34,12 +49,14 @@ export default function Viaturas() {
     especie: "",
     categoria: "",
     tipo: "",
+    km_inicial: "",
     status_operacional: "disponivel" as "disponivel" | "empenhada" | "manutencao" | "inoperante" | "devolvida" | "acidentada" | "batida",
     observacoes: "",
   });
 
   useEffect(() => {
     fetchViaturas();
+    fetchAvailableItems();
     checkUserRole();
   }, []);
 
@@ -91,12 +108,73 @@ export default function Viaturas() {
     }
   };
 
+  const fetchAvailableItems = async () => {
+    const { data, error } = await supabase
+      .from("itens_viatura")
+      .select("id, nome, categoria, tipo")
+      .order("nome", { ascending: true });
+
+    if (!error && data) {
+      setAvailableItems(data);
+    }
+  };
+
+  const fetchViaturaItems = async (viaturaId: string) => {
+    const { data, error } = await supabase
+      .from("viatura_itens_config")
+      .select("item_viatura_id, quantidade_padrao, itens_viatura(nome)")
+      .eq("viatura_id", viaturaId);
+
+    if (!error && data) {
+      setSelectedItems(
+        data.map((item: any) => ({
+          item_viatura_id: item.item_viatura_id,
+          quantidade: item.quantidade_padrao || 1,
+          nome: item.itens_viatura?.nome || "",
+        }))
+      );
+    }
+  };
+
+  const addItemToViatura = (itemId: string) => {
+    const item = availableItems.find((i) => i.id === itemId);
+    if (item && !selectedItems.find((s) => s.item_viatura_id === itemId)) {
+      setSelectedItems([
+        ...selectedItems,
+        { item_viatura_id: itemId, quantidade: 1, nome: item.nome },
+      ]);
+    }
+  };
+
+  const removeItemFromViatura = (itemId: string) => {
+    setSelectedItems(selectedItems.filter((s) => s.item_viatura_id !== itemId));
+  };
+
+  const updateItemQuantity = (itemId: string, quantidade: number) => {
+    setSelectedItems(
+      selectedItems.map((s) =>
+        s.item_viatura_id === itemId ? { ...s, quantidade } : s
+      )
+    );
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const dataToSave = {
-      ...formData,
+      placa: formData.placa,
+      prefixo: formData.prefixo,
+      chassi: formData.chassi || null,
+      renavam: formData.renavam || null,
+      marca: formData.marca || null,
+      modelo: formData.modelo || null,
+      especie: formData.especie || null,
+      categoria: formData.categoria || null,
+      tipo: formData.tipo || null,
+      observacoes: formData.observacoes || null,
       ano_fabricacao: formData.ano_fabricacao ? parseInt(formData.ano_fabricacao) : null,
+      km_inicial: formData.km_inicial ? parseInt(formData.km_inicial) : 0,
+      status_operacional: formData.status_operacional,
     };
 
     if (isEditMode && selectedViatura) {
@@ -106,6 +184,7 @@ export default function Viaturas() {
         if (error) {
           toast({ variant: "destructive", title: "Erro ao atualizar viatura", description: error.message });
         } else {
+          await saveViaturaItems(selectedViatura.id);
           toast({ title: "Viatura atualizada!", description: "A viatura foi atualizada com sucesso." });
           setDialogOpen(false);
           fetchViaturas();
@@ -116,6 +195,7 @@ export default function Viaturas() {
         if (error) {
           toast({ variant: "destructive", title: "Erro ao atualizar viatura", description: error.message });
         } else {
+          await saveViaturaItems(selectedViatura.id);
           toast({ title: "Viatura atualizada!", description: "A viatura foi atualizada com sucesso." });
           setDialogOpen(false);
           fetchViaturas();
@@ -125,26 +205,45 @@ export default function Viaturas() {
     } else {
       // Create viatura
       if (isKeycloakUser()) {
-        const { error } = await proxyFetch("create_viatura", { viatura: dataToSave });
+        const { data, error } = await proxyFetch<any>("create_viatura", { viatura: dataToSave });
         if (error) {
           toast({ variant: "destructive", title: "Erro ao criar viatura", description: error.message });
         } else {
+          if (data?.id) await saveViaturaItems(data.id);
           toast({ title: "Viatura criada!", description: "A viatura foi cadastrada com sucesso." });
           setDialogOpen(false);
           fetchViaturas();
           resetForm();
         }
       } else {
-        const { error } = await supabase.from("viaturas").insert([dataToSave]);
+        const { data, error } = await supabase.from("viaturas").insert([dataToSave]).select().single();
         if (error) {
           toast({ variant: "destructive", title: "Erro ao criar viatura", description: error.message });
         } else {
+          if (data?.id) await saveViaturaItems(data.id);
           toast({ title: "Viatura criada!", description: "A viatura foi cadastrada com sucesso." });
           setDialogOpen(false);
           fetchViaturas();
           resetForm();
         }
       }
+    }
+  };
+
+  const saveViaturaItems = async (viaturaId: string) => {
+    // Delete existing items config
+    await supabase.from("viatura_itens_config").delete().eq("viatura_id", viaturaId);
+
+    // Insert new items
+    if (selectedItems.length > 0) {
+      const itemsToInsert = selectedItems.map((item) => ({
+        viatura_id: viaturaId,
+        item_viatura_id: item.item_viatura_id,
+        quantidade_padrao: item.quantidade,
+        obrigatoriedade: "recomendado" as const,
+      }));
+
+      await supabase.from("viatura_itens_config").insert(itemsToInsert);
     }
   };
 
@@ -184,14 +283,16 @@ export default function Viaturas() {
       especie: "",
       categoria: "",
       tipo: "",
+      km_inicial: "",
       status_operacional: "disponivel",
       observacoes: "",
     });
+    setSelectedItems([]);
     setIsEditMode(false);
     setSelectedViatura(null);
   };
 
-  const openEditDialog = (viatura: any) => {
+  const openEditDialog = async (viatura: any) => {
     setSelectedViatura(viatura);
     setFormData({
       placa: viatura.placa || "",
@@ -204,9 +305,11 @@ export default function Viaturas() {
       especie: viatura.especie || "",
       categoria: viatura.categoria || "",
       tipo: viatura.tipo || "",
+      km_inicial: viatura.km_inicial?.toString() || "",
       status_operacional: viatura.status_operacional || "disponivel",
       observacoes: viatura.observacoes || "",
     });
+    await fetchViaturaItems(viatura.id);
     setIsEditMode(true);
     setDialogOpen(true);
   };
@@ -304,6 +407,16 @@ export default function Viaturas() {
                     />
                   </div>
                   <div className="space-y-2">
+                    <Label htmlFor="km_inicial">Quilometragem Inicial</Label>
+                    <Input
+                      id="km_inicial"
+                      type="number"
+                      value={formData.km_inicial}
+                      onChange={(e) => setFormData({ ...formData, km_inicial: e.target.value })}
+                      placeholder="0"
+                    />
+                  </div>
+                  <div className="space-y-2">
                     <Label htmlFor="status_operacional">Status Operacional</Label>
                     <Select
                       value={formData.status_operacional}
@@ -321,6 +434,53 @@ export default function Viaturas() {
                     </Select>
                   </div>
                 </div>
+
+                {/* Itens da Viatura */}
+                <div className="space-y-3 border-t pt-4">
+                  <Label>Itens da Viatura</Label>
+                  <div className="flex gap-2">
+                    <Select onValueChange={addItemToViatura}>
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="Selecionar item para adicionar..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableItems
+                          .filter((item) => !selectedItems.find((s) => s.item_viatura_id === item.id))
+                          .map((item) => (
+                            <SelectItem key={item.id} value={item.id}>
+                              {item.nome}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {selectedItems.length > 0 && (
+                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                      {selectedItems.map((item) => (
+                        <div key={item.item_viatura_id} className="flex items-center gap-2 p-2 bg-muted rounded-md">
+                          <span className="flex-1 text-sm">{item.nome}</span>
+                          <Input
+                            type="number"
+                            min="1"
+                            value={item.quantidade}
+                            onChange={(e) => updateItemQuantity(item.item_viatura_id, parseInt(e.target.value) || 1)}
+                            className="w-20 h-8"
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeItemFromViatura(item.item_viatura_id)}
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 <div className="flex justify-end gap-2">
                   <Button type="button" variant="outline" onClick={() => { setDialogOpen(false); resetForm(); }}>
                     Cancelar

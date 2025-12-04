@@ -479,6 +479,7 @@ export type Database = {
           created_at: string
           especie: string | null
           id: string
+          km_inicial: number | null
           marca: string | null
           modelo: string | null
           observacoes: string | null
@@ -499,6 +500,7 @@ export type Database = {
           created_at?: string
           especie?: string | null
           id?: string
+          km_inicial?: number | null
           marca?: string | null
           modelo?: string | null
           observacoes?: string | null
@@ -519,6 +521,7 @@ export type Database = {
           created_at?: string
           especie?: string | null
           id?: string
+          km_inicial?: number | null
           marca?: string | null
           modelo?: string | null
           observacoes?: string | null
