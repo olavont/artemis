@@ -20,9 +20,13 @@ interface CheckinStep1NewProps {
   onChange: (field: string, value: string | string[] | number | null) => void;
   vehicleInfo?: string;
   kmMinimo: number;
+  tipo?: "checkin" | "checkout";
 }
 
-export function CheckinStep1New({ data, onChange, vehicleInfo, kmMinimo }: CheckinStep1NewProps) {
+export function CheckinStep1New({ data, onChange, vehicleInfo, kmMinimo, tipo = "checkin" }: CheckinStep1NewProps) {
+  const localLabel = tipo === "checkout" ? "Local de Devolução" : "Local de Retirada";
+  const localPlaceholder = tipo === "checkout" ? "Endereço do local de devolução" : "Endereço do local de retirada";
+  const motivoPlaceholder = tipo === "checkout" ? "Descreva o motivo/observações da devolução..." : "Descreva o motivo do empenho da viatura...";
   const [kmError, setKmError] = useState("");
   const [gettingLocation, setGettingLocation] = useState(false);
 
@@ -165,7 +169,7 @@ export function CheckinStep1New({ data, onChange, vehicleInfo, kmMinimo }: Check
           </Label>
           <Textarea
             id="motivo"
-            placeholder="Descreva o motivo do empenho da viatura..."
+            placeholder={motivoPlaceholder}
             value={data.motivo}
             onChange={(e) => onChange("motivo", e.target.value)}
             rows={3}
@@ -195,15 +199,15 @@ export function CheckinStep1New({ data, onChange, vehicleInfo, kmMinimo }: Check
           </p>
         </div>
 
-        {/* Local de Retirada com GPS */}
+        {/* Local com GPS */}
         <div className="space-y-3">
           <Label className="text-base font-semibold">
-            Local de Retirada *
+            {localLabel} *
           </Label>
           
           <div className="flex gap-2">
             <Input
-              placeholder="Endereço do local de retirada"
+              placeholder={localPlaceholder}
               value={data.local}
               onChange={(e) => onChange("local", e.target.value)}
               className="flex-1"

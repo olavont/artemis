@@ -364,6 +364,7 @@ export default function CheckoutForm() {
           onChange={handleStep1Change}
           vehicleInfo={`${viatura?.prefixo} - ${viatura?.marca} ${viatura?.modelo}`}
           kmMinimo={kmMinimo}
+          tipo="checkout"
         />
       )}
 
