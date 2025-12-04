@@ -136,7 +136,7 @@ export function CheckoutStep3({ protocoloId, data, onChange }: CheckoutStep3Prop
         ) : (
           items.map((item) => {
           const itemData = getItemData(item.item_viatura_id);
-          const hasDiscrepancy = itemData.status && itemData.status !== item.checkin_situacao;
+          const hasDiscrepancy = itemData.status && itemData.status !== item.checkin_situacao && !(itemData.status === "tem" && item.checkin_situacao === "tem");
 
           return (
             <div key={item.item_viatura_id} className="border rounded-lg p-4 space-y-3">
@@ -146,7 +146,7 @@ export function CheckoutStep3({ protocoloId, data, onChange }: CheckoutStep3Prop
                   <p className="text-sm text-muted-foreground">{item.descricao}</p>
                   <div className="mt-2">
                     <Badge variant="outline" className="text-xs">
-                      Check-in: {item.checkin_situacao === "em_condicoes" ? "OK" : item.checkin_situacao.toUpperCase()}
+                      Check-in: {item.checkin_situacao === "tem" ? "Presente" : item.checkin_situacao === "nao_tem" ? "Ausente" : item.checkin_situacao === "sem_condicoes" ? "Incompleto" : item.checkin_situacao.toUpperCase()}
                     </Badge>
                   </div>
                 </div>
@@ -165,14 +165,14 @@ export function CheckoutStep3({ protocoloId, data, onChange }: CheckoutStep3Prop
                     <SelectValue placeholder="Selecione o status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="presente">Presente</SelectItem>
-                    <SelectItem value="incompleto">Incompleto</SelectItem>
-                    <SelectItem value="ausente">Ausente</SelectItem>
+                    <SelectItem value="tem">Presente</SelectItem>
+                    <SelectItem value="sem_condicoes">Incompleto</SelectItem>
+                    <SelectItem value="nao_tem">Ausente</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
-              {(itemData.status === "incompleto" || itemData.status === "ausente") && (
+              {(itemData.status === "sem_condicoes" || itemData.status === "nao_tem") && (
                 <div className="space-y-2">
                   <Label>Observações *</Label>
                   <Textarea
