@@ -18,39 +18,89 @@ interface IDTokenPayload {
   email?: string
   name?: string
   preferred_username?: string
-  groups?: string[]
-  realm_access?: {
-    roles?: string[]
+}
+
+interface UranusGroup {
+  id: string
+  name: string
+  alias: string
+  active: boolean
+}
+
+interface UranusUserResponse {
+  groups?: UranusGroup[]
+  [key: string]: unknown
+}
+
+// Fetch user groups from Uranus API
+async function fetchUranusGroups(accessToken: string, username: string): Promise<UranusGroup[]> {
+  const uranusApiUrl = Deno.env.get('URANUS_API_URL')
+  const uranusTenant = Deno.env.get('URANUS_TENANT')
+
+  if (!uranusApiUrl || !uranusTenant) {
+    console.error('Missing URANUS_API_URL or URANUS_TENANT environment variables')
+    return []
   }
-  resource_access?: {
-    [key: string]: {
-      roles?: string[]
+
+  try {
+    const url = `${uranusApiUrl}/core/users/${username}`
+    console.log('Fetching Uranus user data from:', url)
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'X-Tenant': uranusTenant,
+        'Content-Type': 'application/json',
+      },
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('Failed to fetch Uranus user data:', response.status, errorText)
+      return []
     }
+
+    const userData: UranusUserResponse = await response.json()
+    console.log('Uranus user data received:', JSON.stringify(userData, null, 2))
+
+    return userData.groups || []
+  } catch (error) {
+    console.error('Error fetching Uranus user data:', error)
+    return []
   }
 }
 
-// Map Keycloak groups/roles to app roles
-function mapKeycloakRoleToAppRole(idToken: IDTokenPayload, clientId: string): 'admin' | 'gestor' | 'agente' {
-  const groups = idToken.groups || []
-  const realmRoles = idToken.realm_access?.roles || []
-  const clientRoles = idToken.resource_access?.[clientId]?.roles || []
+// Map Uranus groups to app roles
+function mapUranusGroupsToAppRole(groups: UranusGroup[]): 'admin' | 'gestor' | 'agente' {
+  console.log('Mapping Uranus groups:', groups.map(g => ({ name: g.name, alias: g.alias, active: g.active })))
 
-  // Normalize all roles/groups to lowercase for comparison
-  const allRoles = [...groups, ...realmRoles, ...clientRoles].map(r => r.toLowerCase())
+  // Only consider active groups
+  const activeGroups = groups.filter(g => g.active)
+  
+  // Normalize group names and aliases for comparison
+  const groupIdentifiers = activeGroups.flatMap(g => [
+    g.name.toLowerCase(),
+    g.alias.toLowerCase()
+  ])
 
-  console.log('Keycloak roles/groups:', { groups, realmRoles, clientRoles, allRoles })
+  console.log('Active group identifiers:', groupIdentifiers)
 
   // Check for Administrador or Supervisor groups - maps to gestor in the app
-  if (allRoles.some(r => 
-    r.includes('administrador') || 
-    r.includes('supervisor') || 
-    r.includes('admin') || 
-    r.includes('gestor')
-  )) {
+  const isGestorOrAdmin = groupIdentifiers.some(identifier => 
+    identifier.includes('administrador') || 
+    identifier.includes('supervisor') || 
+    identifier.includes('admin') ||
+    identifier.includes('gestor')
+  )
+
+  if (isGestorOrAdmin) {
+    console.log('User has admin/gestor privileges based on Uranus groups')
     return 'gestor'
   }
 
   // All other users are agentes
+  console.log('User assigned agente role (no admin/gestor groups found)')
   return 'agente'
 }
 
@@ -115,14 +165,24 @@ Deno.serve(async (req) => {
       sub: idTokenPayload.sub,
       email: idTokenPayload.email,
       name: idTokenPayload.name,
-      groups: idTokenPayload.groups,
-      realm_access: idTokenPayload.realm_access,
-      resource_access: idTokenPayload.resource_access
+      preferred_username: idTokenPayload.preferred_username
     })
 
-    // Determine role based on Keycloak groups
-    const appRole = mapKeycloakRoleToAppRole(idTokenPayload, clientId)
-    console.log('Mapped app role:', appRole)
+    // Get username for Uranus API call
+    const username = idTokenPayload.preferred_username || idTokenPayload.email?.split('@')[0]
+    
+    if (!username) {
+      throw new Error('Could not determine username from token')
+    }
+
+    console.log('Fetching user groups from Uranus API for username:', username)
+
+    // Fetch user groups from Uranus API using the access token
+    const uranusGroups = await fetchUranusGroups(tokens.access_token, username)
+    
+    // Determine role based on Uranus groups
+    const appRole = mapUranusGroupsToAppRole(uranusGroups)
+    console.log('Final mapped app role:', appRole)
 
     // Check if user exists in profiles
     const { data: existingProfile } = await supabase
@@ -156,7 +216,7 @@ Deno.serve(async (req) => {
     } else {
       console.log('User already exists:', userId)
 
-      // Update role if needed (sync with Keycloak on each login)
+      // Update role if needed (sync with Uranus on each login)
       const { error: updateProfileError } = await supabase
         .from('profiles')
         .update({ perfil: appRole })
@@ -164,6 +224,8 @@ Deno.serve(async (req) => {
 
       if (updateProfileError) {
         console.error('Error updating profile:', updateProfileError)
+      } else {
+        console.log('User profile updated with role:', appRole)
       }
     }
 
