@@ -178,6 +178,45 @@ Deno.serve(async (req) => {
         error = disponiveisResult.error
         break
 
+      case 'create_viatura':
+        if (!isGestorOrAdmin) {
+          throw new Error('Unauthorized: Only gestors and admins can create vehicles')
+        }
+        const createResult = await supabase
+          .from('viaturas')
+          .insert([params.viatura])
+          .select()
+          .single()
+        data = createResult.data
+        error = createResult.error
+        break
+
+      case 'update_viatura':
+        if (!isGestorOrAdmin) {
+          throw new Error('Unauthorized: Only gestors and admins can update vehicles')
+        }
+        const updateResult = await supabase
+          .from('viaturas')
+          .update(params.viatura)
+          .eq('id', params.id)
+          .select()
+          .single()
+        data = updateResult.data
+        error = updateResult.error
+        break
+
+      case 'delete_viatura':
+        if (profile.perfil !== 'admin') {
+          throw new Error('Unauthorized: Only admins can delete vehicles')
+        }
+        const deleteResult = await supabase
+          .from('viaturas')
+          .delete()
+          .eq('id', params.id)
+        data = { deleted: true }
+        error = deleteResult.error
+        break
+
       case 'get_dashboard_stats':
         if (isGestorOrAdmin) {
           // Get vehicle counts by status
