@@ -2,14 +2,13 @@ import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, MapPin, Calendar, User, FileText, Printer, Car, Fuel, Gauge, Wrench, Package, Camera } from "lucide-react";
+import { ArrowLeft, MapPin, Calendar, User, FileText, Printer, Fuel, Gauge, Wrench, Package, Camera } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Separator } from "@/components/ui/separator";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import html2pdf from "html2pdf.js";
 
 export default function ProtocoloDetalhes() {
@@ -105,23 +104,40 @@ export default function ProtocoloDetalhes() {
     setFotos(data || []);
   };
 
-  const handlePrintPDF = () => {
+  const handlePrintPDF = async () => {
     if (!printRef.current) return;
 
+    toast({
+      title: "Gerando PDF...",
+      description: "Aguarde enquanto o documento é preparado.",
+    });
+
     const opt = {
-      margin: 10,
+      margin: [10, 10, 10, 10],
       filename: `protocolo_${protocolo.numero_protocolo}.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2 },
+      html2canvas: { 
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        allowTaint: true
+      },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
 
-    html2pdf().set(opt).from(printRef.current).save();
-    
-    toast({
-      title: "PDF gerado!",
-      description: "O arquivo está sendo baixado.",
-    });
+    try {
+      await html2pdf().set(opt).from(printRef.current).save();
+      toast({
+        title: "PDF gerado!",
+        description: "O arquivo foi baixado com sucesso.",
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Erro ao gerar PDF",
+        description: "Tente novamente.",
+      });
+    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -207,7 +223,7 @@ export default function ProtocoloDetalhes() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between print:hidden">
         <div className="flex items-center gap-4">
           <Button variant="outline" size="icon" onClick={() => navigate("/protocolos")}>
             <ArrowLeft className="w-4 h-4" />
@@ -224,384 +240,348 @@ export default function ProtocoloDetalhes() {
       </div>
 
       {/* Printable content */}
-      <div ref={printRef} className="space-y-6">
-        {/* Header for PDF */}
-        <div className="hidden print:block text-center mb-6">
-          <h1 className="text-2xl font-bold">Protocolo de Empenho</h1>
-          <p className="text-lg">{protocolo.numero_protocolo}</p>
+      <div ref={printRef} className="space-y-6 bg-background p-4">
+        {/* Header */}
+        <div className="text-center border-b pb-4">
+          <h1 className="text-2xl font-bold">PROTOCOLO DE EMPENHO</h1>
+          <p className="text-xl font-semibold mt-1">{protocolo.numero_protocolo}</p>
+          <div className="mt-2">
+            {getStatusBadge(protocolo.status)}
+          </div>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="w-5 h-5" />
-                Informações Gerais
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Status</span>
-                {getStatusBadge(protocolo.status)}
-              </div>
-              <Separator />
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Prefixo</p>
-                  <p className="font-medium">{protocolo.viaturas?.prefixo}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Placa</p>
-                  <p className="font-medium">{protocolo.viaturas?.placa}</p>
-                </div>
-                <div className="col-span-2">
-                  <p className="text-sm text-muted-foreground">Veículo</p>
-                  <p className="font-medium">{protocolo.viaturas?.marca} {protocolo.viaturas?.modelo}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <User className="w-5 h-5" />
-                Agente Responsável (Empenho)
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <p className="text-sm text-muted-foreground">Nome</p>
-                <p className="font-medium">{protocolo.profiles?.nome}</p>
-              </div>
-              {protocolo.profiles?.matricula && (
-                <div>
-                  <p className="text-sm text-muted-foreground">Matrícula</p>
-                  <p className="font-medium">{protocolo.profiles?.matricula}</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
+        {/* Informações Gerais */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="w-5 h-5" />
-              Datas e Locais
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <FileText className="w-5 h-5" />
+              Informações do Veículo
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-6 md:grid-cols-2">
-              <div className="space-y-4">
-                <h3 className="font-semibold text-lg border-b pb-2">Check-In (Empenho)</h3>
-                <div>
-                  <p className="text-sm text-muted-foreground">Data/Hora</p>
-                  <p className="font-medium">
-                    {format(new Date(protocolo.data_hora_empenho), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                  </p>
-                </div>
-                {protocolo.local_empenho && (
-                  <div className="flex items-start gap-2">
-                    <MapPin className="w-4 h-4 mt-1 text-muted-foreground flex-shrink-0" />
-                    <div>
-                      <p className="text-sm text-muted-foreground">Local de Retirada</p>
-                      <p className="font-medium text-sm">{protocolo.local_empenho}</p>
-                    </div>
-                  </div>
-                )}
-                {protocolo.latitude_empenho && protocolo.longitude_empenho && (
-                  <p className="text-xs text-muted-foreground">
-                    Coordenadas: {protocolo.latitude_empenho.toFixed(6)}, {protocolo.longitude_empenho.toFixed(6)}
-                  </p>
-                )}
+            <div className="grid grid-cols-4 gap-4">
+              <div>
+                <p className="text-sm text-muted-foreground">Prefixo</p>
+                <p className="font-semibold">{protocolo.viaturas?.prefixo || "-"}</p>
               </div>
-
-              {devolucao && (
-                <div className="space-y-4">
-                  <h3 className="font-semibold text-lg border-b pb-2">Check-Out (Devolução)</h3>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Data/Hora</p>
-                    <p className="font-medium">
-                      {format(new Date(devolucao.data_hora_devolucao), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                    </p>
-                  </div>
-                  {devolucao.local_devolucao && (
-                    <div className="flex items-start gap-2">
-                      <MapPin className="w-4 h-4 mt-1 text-muted-foreground flex-shrink-0" />
-                      <div>
-                        <p className="text-sm text-muted-foreground">Local de Devolução</p>
-                        <p className="font-medium text-sm">{devolucao.local_devolucao}</p>
-                      </div>
-                    </div>
-                  )}
-                  {devolucao.latitude_devolucao && devolucao.longitude_devolucao && (
-                    <p className="text-xs text-muted-foreground">
-                      Coordenadas: {devolucao.latitude_devolucao.toFixed(6)}, {devolucao.longitude_devolucao.toFixed(6)}
-                    </p>
-                  )}
-                  {devolucao.profiles && (
-                    <div>
-                      <p className="text-sm text-muted-foreground">Agente Responsável</p>
-                      <p className="font-medium">{devolucao.profiles.nome}</p>
-                    </div>
-                  )}
-                </div>
-              )}
+              <div>
+                <p className="text-sm text-muted-foreground">Placa</p>
+                <p className="font-semibold">{protocolo.viaturas?.placa || "-"}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Marca</p>
+                <p className="font-semibold">{protocolo.viaturas?.marca || "-"}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Modelo</p>
+                <p className="font-semibold">{protocolo.viaturas?.modelo || "-"}</p>
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Checklists detalhados */}
-        {(checklistEmpenho || checklistDevolucao) && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Car className="w-5 h-5" />
-                Checklists do Veículo
+        {/* Check-In e Check-Out lado a lado */}
+        <div className="grid md:grid-cols-2 gap-6">
+          {/* CHECK-IN */}
+          <Card className="border-2 border-blue-200">
+            <CardHeader className="bg-blue-50 dark:bg-blue-950/30">
+              <CardTitle className="text-lg text-blue-700 dark:text-blue-300">
+                CHECK-IN (Retirada)
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <Tabs defaultValue={checklistEmpenho ? "empenho" : "devolucao"}>
-                <TabsList className="grid w-full grid-cols-2">
-                  {checklistEmpenho && <TabsTrigger value="empenho">Check-In</TabsTrigger>}
-                  {checklistDevolucao && <TabsTrigger value="devolucao">Check-Out</TabsTrigger>}
-                </TabsList>
+            <CardContent className="pt-4 space-y-4">
+              {/* Data e Local */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">Data/Hora:</span>
+                  <span className="font-medium">
+                    {format(new Date(protocolo.data_hora_empenho), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                  </span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <MapPin className="w-4 h-4 text-muted-foreground mt-0.5" />
+                  <div>
+                    <span className="text-sm text-muted-foreground">Local: </span>
+                    <span className="font-medium text-sm">{protocolo.local_empenho || "-"}</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <User className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">Agente:</span>
+                  <span className="font-medium">{protocolo.profiles?.nome || "-"}</span>
+                </div>
+              </div>
 
-                {checklistEmpenho && (
-                  <TabsContent value="empenho" className="space-y-6 mt-4">
-                    {/* Condições do Veículo */}
-                    <div className="space-y-4">
-                      <h4 className="font-semibold flex items-center gap-2">
-                        <Gauge className="w-4 h-4" />
-                        Condições do Veículo
-                      </h4>
-                      <div className="grid gap-4 md:grid-cols-4">
-                        <div className="p-3 bg-muted rounded-lg">
-                          <p className="text-sm text-muted-foreground">Quilometragem</p>
-                          <p className="font-medium text-lg">{checklistEmpenho.km_atual?.toLocaleString('pt-BR') || "-"} km</p>
+              <Separator />
+
+              {/* Condições do Veículo */}
+              <div className="space-y-3">
+                <h4 className="font-semibold flex items-center gap-2 text-sm">
+                  <Gauge className="w-4 h-4" />
+                  Condições do Veículo
+                </h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-2 bg-muted rounded">
+                    <p className="text-xs text-muted-foreground">KM</p>
+                    <p className="font-semibold">{checklistEmpenho?.km_atual?.toLocaleString('pt-BR') || "-"}</p>
+                  </div>
+                  <div className="p-2 bg-muted rounded">
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Fuel className="w-3 h-3" /> Combustível
+                    </p>
+                    <p className="font-semibold">{getNivelCombustivelLabel(checklistEmpenho?.nivel_combustivel)}</p>
+                  </div>
+                  <div className="p-2 bg-muted rounded">
+                    <p className="text-xs text-muted-foreground">Nível Óleo</p>
+                    <p className="font-semibold">{getNivelOleoLabel(checklistEmpenho?.nivel_oleo)}</p>
+                  </div>
+                  <div className="p-2 bg-muted rounded">
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Wrench className="w-3 h-3" /> Mecânica
+                    </p>
+                    <p className={`font-semibold ${checklistEmpenho?.condicoes_mecanicas === "em_condicoes" ? "text-green-600" : checklistEmpenho?.condicoes_mecanicas ? "text-red-500" : ""}`}>
+                      {getCondicoesMecanicasLabel(checklistEmpenho?.condicoes_mecanicas)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Itens Verificados */}
+              {checklistEmpenho?.checklist_itens?.length > 0 && (
+                <>
+                  <Separator />
+                  <div className="space-y-2">
+                    <h4 className="font-semibold flex items-center gap-2 text-sm">
+                      <Package className="w-4 h-4" />
+                      Itens Verificados
+                    </h4>
+                    <div className="space-y-1">
+                      {checklistEmpenho.checklist_itens.map((item: any) => (
+                        <div key={item.id} className="flex items-center justify-between text-sm p-1 border-b">
+                          <span>{item.itens_viatura?.nome}</span>
+                          <span className={`font-medium ${getSituacaoItemColor(item.situacao)}`}>
+                            {getSituacaoItemLabel(item.situacao)}
+                          </span>
                         </div>
-                        <div className="p-3 bg-muted rounded-lg">
-                          <p className="text-sm text-muted-foreground flex items-center gap-1">
-                            <Fuel className="w-3 h-3" /> Combustível
-                          </p>
-                          <p className="font-medium text-lg">{getNivelCombustivelLabel(checklistEmpenho.nivel_combustivel)}</p>
-                        </div>
-                        <div className="p-3 bg-muted rounded-lg">
-                          <p className="text-sm text-muted-foreground">Nível de Óleo</p>
-                          <p className="font-medium text-lg">{getNivelOleoLabel(checklistEmpenho.nivel_oleo)}</p>
-                        </div>
-                        <div className="p-3 bg-muted rounded-lg">
-                          <p className="text-sm text-muted-foreground flex items-center gap-1">
-                            <Wrench className="w-3 h-3" /> Condições Mecânicas
-                          </p>
-                          <p className={`font-medium text-lg ${checklistEmpenho.condicoes_mecanicas === "em_condicoes" ? "text-green-600" : "text-red-500"}`}>
-                            {getCondicoesMecanicasLabel(checklistEmpenho.condicoes_mecanicas)}
-                          </p>
-                        </div>
-                      </div>
+                      ))}
                     </div>
+                  </div>
+                </>
+              )}
 
-                    {/* Itens Verificados */}
-                    {checklistEmpenho.checklist_itens?.length > 0 && (
-                      <div className="space-y-4">
-                        <h4 className="font-semibold flex items-center gap-2">
-                          <Package className="w-4 h-4" />
-                          Itens Verificados
-                        </h4>
-                        <div className="grid gap-2">
-                          {checklistEmpenho.checklist_itens.map((item: any) => (
-                            <div key={item.id} className="flex items-center justify-between p-3 border rounded-lg">
-                              <div>
-                                <p className="font-medium">{item.itens_viatura?.nome}</p>
-                                {item.observacoes && (
-                                  <p className="text-sm text-muted-foreground">{item.observacoes}</p>
-                                )}
-                              </div>
-                              <Badge variant="outline" className={getSituacaoItemColor(item.situacao)}>
-                                {getSituacaoItemLabel(item.situacao)}
-                              </Badge>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+              {checklistEmpenho?.observacoes && (
+                <>
+                  <Separator />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Observações:</p>
+                    <p className="text-sm">{checklistEmpenho.observacoes}</p>
+                  </div>
+                </>
+              )}
 
-                    {checklistEmpenho.observacoes && (
-                      <div className="space-y-2">
-                        <h4 className="font-semibold">Observações</h4>
-                        <p className="text-muted-foreground bg-muted p-3 rounded-lg">{checklistEmpenho.observacoes}</p>
-                      </div>
-                    )}
-                  </TabsContent>
-                )}
-
-                {checklistDevolucao && (
-                  <TabsContent value="devolucao" className="space-y-6 mt-4">
-                    {/* Condições do Veículo */}
-                    <div className="space-y-4">
-                      <h4 className="font-semibold flex items-center gap-2">
-                        <Gauge className="w-4 h-4" />
-                        Condições do Veículo
-                      </h4>
-                      <div className="grid gap-4 md:grid-cols-4">
-                        <div className="p-3 bg-muted rounded-lg">
-                          <p className="text-sm text-muted-foreground">Quilometragem</p>
-                          <p className="font-medium text-lg">{checklistDevolucao.km_atual?.toLocaleString('pt-BR') || "-"} km</p>
-                        </div>
-                        <div className="p-3 bg-muted rounded-lg">
-                          <p className="text-sm text-muted-foreground flex items-center gap-1">
-                            <Fuel className="w-3 h-3" /> Combustível
-                          </p>
-                          <p className="font-medium text-lg">{getNivelCombustivelLabel(checklistDevolucao.nivel_combustivel)}</p>
-                        </div>
-                        <div className="p-3 bg-muted rounded-lg">
-                          <p className="text-sm text-muted-foreground">Nível de Óleo</p>
-                          <p className="font-medium text-lg">{getNivelOleoLabel(checklistDevolucao.nivel_oleo)}</p>
-                        </div>
-                        <div className="p-3 bg-muted rounded-lg">
-                          <p className="text-sm text-muted-foreground flex items-center gap-1">
-                            <Wrench className="w-3 h-3" /> Condições Mecânicas
-                          </p>
-                          <p className={`font-medium text-lg ${checklistDevolucao.condicoes_mecanicas === "em_condicoes" ? "text-green-600" : "text-red-500"}`}>
-                            {getCondicoesMecanicasLabel(checklistDevolucao.condicoes_mecanicas)}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* KM Rodados */}
-                      {checklistEmpenho && checklistDevolucao && (
-                        <div className="p-3 bg-primary/10 rounded-lg">
-                          <p className="text-sm text-muted-foreground">KM Rodados durante o empenho</p>
-                          <p className="font-bold text-xl text-primary">
-                            {((checklistDevolucao.km_atual || 0) - (checklistEmpenho.km_atual || 0)).toLocaleString('pt-BR')} km
-                          </p>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Itens Verificados */}
-                    {checklistDevolucao.checklist_itens?.length > 0 && (
-                      <div className="space-y-4">
-                        <h4 className="font-semibold flex items-center gap-2">
-                          <Package className="w-4 h-4" />
-                          Itens Verificados
-                        </h4>
-                        <div className="grid gap-2">
-                          {checklistDevolucao.checklist_itens.map((item: any) => (
-                            <div key={item.id} className="flex items-center justify-between p-3 border rounded-lg">
-                              <div>
-                                <p className="font-medium">{item.itens_viatura?.nome}</p>
-                                {item.observacoes && (
-                                  <p className="text-sm text-muted-foreground">{item.observacoes}</p>
-                                )}
-                              </div>
-                              <Badge variant="outline" className={getSituacaoItemColor(item.situacao)}>
-                                {getSituacaoItemLabel(item.situacao)}
-                              </Badge>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {checklistDevolucao.observacoes && (
-                      <div className="space-y-2">
-                        <h4 className="font-semibold">Observações</h4>
-                        <p className="text-muted-foreground bg-muted p-3 rounded-lg">{checklistDevolucao.observacoes}</p>
-                      </div>
-                    )}
-                  </TabsContent>
-                )}
-              </Tabs>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Fotos */}
-        {(fotosEmpenho.length > 0 || fotosDevolucao.length > 0) && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Camera className="w-5 h-5" />
-                Fotos do Veículo
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Tabs defaultValue={fotosEmpenho.length > 0 ? "fotos-empenho" : "fotos-devolucao"}>
-                <TabsList>
-                  {fotosEmpenho.length > 0 && <TabsTrigger value="fotos-empenho">Check-In ({fotosEmpenho.length})</TabsTrigger>}
-                  {fotosDevolucao.length > 0 && <TabsTrigger value="fotos-devolucao">Check-Out ({fotosDevolucao.length})</TabsTrigger>}
-                </TabsList>
-
-                {fotosEmpenho.length > 0 && (
-                  <TabsContent value="fotos-empenho" className="mt-4">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {/* Fotos do Check-In */}
+              {fotosEmpenho.length > 0 && (
+                <>
+                  <Separator />
+                  <div className="space-y-2">
+                    <h4 className="font-semibold flex items-center gap-2 text-sm">
+                      <Camera className="w-4 h-4" />
+                      Fotos
+                    </h4>
+                    <div className="grid grid-cols-2 gap-2">
                       {fotosEmpenho.map((foto) => (
-                        <div key={foto.id} className="space-y-2">
+                        <div key={foto.id} className="space-y-1">
                           <img 
                             src={foto.url_foto} 
-                            alt={foto.descricao || "Foto do veículo"}
-                            className="w-full h-32 object-cover rounded-lg border"
+                            alt={foto.descricao || "Foto"}
+                            className="w-full h-24 object-cover rounded border"
+                            crossOrigin="anonymous"
                           />
-                          {foto.descricao && (
-                            <p className="text-xs text-center text-muted-foreground capitalize">
-                              {foto.descricao.replace(/_/g, " ")}
-                            </p>
-                          )}
+                          <p className="text-xs text-center text-muted-foreground capitalize">
+                            {foto.descricao?.replace(/_/g, " ") || "Foto"}
+                          </p>
                         </div>
                       ))}
                     </div>
-                  </TabsContent>
-                )}
-
-                {fotosDevolucao.length > 0 && (
-                  <TabsContent value="fotos-devolucao" className="mt-4">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      {fotosDevolucao.map((foto) => (
-                        <div key={foto.id} className="space-y-2">
-                          <img 
-                            src={foto.url_foto} 
-                            alt={foto.descricao || "Foto do veículo"}
-                            className="w-full h-32 object-cover rounded-lg border"
-                          />
-                          {foto.descricao && (
-                            <p className="text-xs text-center text-muted-foreground capitalize">
-                              {foto.descricao.replace(/_/g, " ")}
-                            </p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </TabsContent>
-                )}
-              </Tabs>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
-        )}
+
+          {/* CHECK-OUT */}
+          <Card className="border-2 border-green-200">
+            <CardHeader className="bg-green-50 dark:bg-green-950/30">
+              <CardTitle className="text-lg text-green-700 dark:text-green-300">
+                CHECK-OUT (Devolução)
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-4 space-y-4">
+              {/* Data e Local */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">Data/Hora:</span>
+                  <span className="font-medium">
+                    {devolucao ? format(new Date(devolucao.data_hora_devolucao), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR }) : "-"}
+                  </span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <MapPin className="w-4 h-4 text-muted-foreground mt-0.5" />
+                  <div>
+                    <span className="text-sm text-muted-foreground">Local: </span>
+                    <span className="font-medium text-sm">{devolucao?.local_devolucao || "-"}</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <User className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">Agente:</span>
+                  <span className="font-medium">{devolucao?.profiles?.nome || "-"}</span>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Condições do Veículo */}
+              <div className="space-y-3">
+                <h4 className="font-semibold flex items-center gap-2 text-sm">
+                  <Gauge className="w-4 h-4" />
+                  Condições do Veículo
+                </h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-2 bg-muted rounded">
+                    <p className="text-xs text-muted-foreground">KM</p>
+                    <p className="font-semibold">{checklistDevolucao?.km_atual?.toLocaleString('pt-BR') || "-"}</p>
+                  </div>
+                  <div className="p-2 bg-muted rounded">
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Fuel className="w-3 h-3" /> Combustível
+                    </p>
+                    <p className="font-semibold">{checklistDevolucao ? getNivelCombustivelLabel(checklistDevolucao.nivel_combustivel) : "-"}</p>
+                  </div>
+                  <div className="p-2 bg-muted rounded">
+                    <p className="text-xs text-muted-foreground">Nível Óleo</p>
+                    <p className="font-semibold">{checklistDevolucao ? getNivelOleoLabel(checklistDevolucao.nivel_oleo) : "-"}</p>
+                  </div>
+                  <div className="p-2 bg-muted rounded">
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Wrench className="w-3 h-3" /> Mecânica
+                    </p>
+                    <p className={`font-semibold ${checklistDevolucao?.condicoes_mecanicas === "em_condicoes" ? "text-green-600" : checklistDevolucao?.condicoes_mecanicas ? "text-red-500" : ""}`}>
+                      {checklistDevolucao ? getCondicoesMecanicasLabel(checklistDevolucao.condicoes_mecanicas) : "-"}
+                    </p>
+                  </div>
+                </div>
+
+                {/* KM Rodados */}
+                {checklistEmpenho && checklistDevolucao && (
+                  <div className="p-3 bg-primary/10 rounded-lg text-center">
+                    <p className="text-sm text-muted-foreground">KM Rodados</p>
+                    <p className="font-bold text-xl text-primary">
+                      {((checklistDevolucao.km_atual || 0) - (checklistEmpenho.km_atual || 0)).toLocaleString('pt-BR')} km
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Itens Verificados */}
+              {checklistDevolucao?.checklist_itens?.length > 0 && (
+                <>
+                  <Separator />
+                  <div className="space-y-2">
+                    <h4 className="font-semibold flex items-center gap-2 text-sm">
+                      <Package className="w-4 h-4" />
+                      Itens Verificados
+                    </h4>
+                    <div className="space-y-1">
+                      {checklistDevolucao.checklist_itens.map((item: any) => (
+                        <div key={item.id} className="flex items-center justify-between text-sm p-1 border-b">
+                          <span>{item.itens_viatura?.nome}</span>
+                          <span className={`font-medium ${getSituacaoItemColor(item.situacao)}`}>
+                            {getSituacaoItemLabel(item.situacao)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {checklistDevolucao?.observacoes && (
+                <>
+                  <Separator />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Observações:</p>
+                    <p className="text-sm">{checklistDevolucao.observacoes}</p>
+                  </div>
+                </>
+              )}
+
+              {/* Fotos do Check-Out */}
+              {fotosDevolucao.length > 0 && (
+                <>
+                  <Separator />
+                  <div className="space-y-2">
+                    <h4 className="font-semibold flex items-center gap-2 text-sm">
+                      <Camera className="w-4 h-4" />
+                      Fotos
+                    </h4>
+                    <div className="grid grid-cols-2 gap-2">
+                      {fotosDevolucao.map((foto) => (
+                        <div key={foto.id} className="space-y-1">
+                          <img 
+                            src={foto.url_foto} 
+                            alt={foto.descricao || "Foto"}
+                            className="w-full h-24 object-cover rounded border"
+                            crossOrigin="anonymous"
+                          />
+                          <p className="text-xs text-center text-muted-foreground capitalize">
+                            {foto.descricao?.replace(/_/g, " ") || "Foto"}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {!devolucao && (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p className="italic">Check-out ainda não realizado</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Observações Gerais */}
-        {protocolo.observacoes && (
+        {(protocolo.observacoes || devolucao?.observacoes) && (
           <Card>
-            <CardHeader>
-              <CardTitle>Observações do Empenho</CardTitle>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg">Observações Gerais</CardTitle>
             </CardHeader>
-            <CardContent>
-              <p className="whitespace-pre-wrap">{protocolo.observacoes}</p>
+            <CardContent className="space-y-4">
+              {protocolo.observacoes && (
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Empenho:</p>
+                  <p className="whitespace-pre-wrap">{protocolo.observacoes}</p>
+                </div>
+              )}
+              {devolucao?.observacoes && (
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Devolução:</p>
+                  <p className="whitespace-pre-wrap">{devolucao.observacoes}</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
 
-        {devolucao?.observacoes && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Observações da Devolução</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="whitespace-pre-wrap">{devolucao.observacoes}</p>
-            </CardContent>
-          </Card>
-        )}
+        {/* Rodapé para impressão */}
+        <div className="text-center text-xs text-muted-foreground pt-4 border-t">
+          <p>Documento gerado em {format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</p>
+        </div>
       </div>
     </div>
   );
