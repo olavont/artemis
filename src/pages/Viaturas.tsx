@@ -410,7 +410,7 @@ export default function Viaturas() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="km_inicial">Quilometragem Atual *</Label>
+                    <Label htmlFor="km_inicial">Quilometragem Inicial *</Label>
                     <Input
                       id="km_inicial"
                       type="number"
@@ -418,7 +418,11 @@ export default function Viaturas() {
                       onChange={(e) => setFormData({ ...formData, km_inicial: e.target.value })}
                       placeholder="0"
                       required
+                      disabled={isEditMode}
                     />
+                    {isEditMode && (
+                      <p className="text-xs text-muted-foreground">KM inicial não pode ser alterado após cadastro</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="status_operacional">Status Operacional</Label>
@@ -606,8 +610,12 @@ export default function Viaturas() {
                   <p className="font-medium">{selectedViatura.ano_fabricacao || "-"}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Quilometragem Atual</p>
+                  <p className="text-sm text-muted-foreground">KM Inicial (Cadastro)</p>
                   <p className="font-medium">{selectedViatura.km_inicial?.toLocaleString('pt-BR') || "0"} km</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">KM Atual</p>
+                  <p className="font-medium">{selectedViatura.km_atual?.toLocaleString('pt-BR') || selectedViatura.km_inicial?.toLocaleString('pt-BR') || "0"} km</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Status Operacional</p>

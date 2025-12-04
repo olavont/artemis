@@ -30,7 +30,7 @@ export default function CheckoutForm() {
   const fetchProtocolo = async () => {
     const { data, error } = await supabase
       .from("protocolos_empenho")
-      .select(`*, viaturas (id, prefixo, placa, marca, modelo, km_inicial)`)
+      .select(`*, viaturas (id, prefixo, placa, marca, modelo, km_inicial, km_atual)`)
       .eq("id", id)
       .single();
 
@@ -39,7 +39,9 @@ export default function CheckoutForm() {
       navigate("/checkout");
     } else {
       setProtocolo(data);
-      setKmMinimo(data.viaturas?.km_inicial || 0);
+      // Use km_atual if available, otherwise use km_inicial
+      const currentKm = data.viaturas?.km_atual || data.viaturas?.km_inicial || 0;
+      setKmMinimo(currentKm);
     }
     setLoading(false);
   };
@@ -103,12 +105,12 @@ export default function CheckoutForm() {
       .update({ status: "concluido" })
       .eq("id", id);
 
-    // Update vehicle status and km_inicial
+    // Update vehicle status and km_atual (not km_inicial)
     await supabase
       .from("viaturas")
       .update({ 
         status_operacional: "disponivel",
-        km_inicial: kmValue 
+        km_atual: kmValue 
       })
       .eq("id", protocolo.viaturas.id);
 
