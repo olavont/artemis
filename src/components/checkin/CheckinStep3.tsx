@@ -82,7 +82,7 @@ export function CheckinStep3({ viaturaId, data, onChange }: CheckinStep3Props) {
     if (index >= 0) {
       newData[index].status = status;
       newData[index].nome_item = itemName;
-      if (status === "em_condicoes") {
+      if (status === "presente") {
         newData[index].observacao = "";
       }
     } else {
@@ -174,15 +174,15 @@ export function CheckinStep3({ viaturaId, data, onChange }: CheckinStep3Props) {
                     onValueChange={(value) => handleStatusChange(item.id, value, item.nome)}
                   >
                     <div className="flex items-center space-x-3 p-3 rounded-lg border hover:bg-accent/50 transition-colors">
-                      <RadioGroupItem value="em_condicoes" id={`${item.id}-em_condicoes`} />
-                      <Label htmlFor={`${item.id}-em_condicoes`} className="font-normal cursor-pointer flex-1">
-                        Em Condições
+                      <RadioGroupItem value="presente" id={`${item.id}-presente`} />
+                      <Label htmlFor={`${item.id}-presente`} className="font-normal cursor-pointer flex-1">
+                        Presente
                       </Label>
                     </div>
                     <div className="flex items-center space-x-3 p-3 rounded-lg border hover:bg-accent/50 transition-colors">
-                      <RadioGroupItem value="sem_condicoes" id={`${item.id}-sem_condicoes`} />
-                      <Label htmlFor={`${item.id}-sem_condicoes`} className="font-normal cursor-pointer flex-1">
-                        Sem Condições
+                      <RadioGroupItem value="incompleto" id={`${item.id}-incompleto`} />
+                      <Label htmlFor={`${item.id}-incompleto`} className="font-normal cursor-pointer flex-1">
+                        Incompleto
                       </Label>
                     </div>
                     <div className="flex items-center space-x-3 p-3 rounded-lg border hover:bg-accent/50 transition-colors">
@@ -193,7 +193,7 @@ export function CheckinStep3({ viaturaId, data, onChange }: CheckinStep3Props) {
                     </div>
                   </RadioGroup>
 
-                  {(status.status === "sem_condicoes" || status.status === "ausente") && (
+                  {(status.status === "incompleto" || status.status === "ausente") && (
                     <div className="space-y-2">
                       <Label htmlFor={`${item.id}-obs`}>Observações *</Label>
                       <Textarea
