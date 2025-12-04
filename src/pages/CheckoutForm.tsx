@@ -174,7 +174,7 @@ export default function CheckoutForm() {
       }
       
       const missingObservation = step3Data.some(
-        item => (item.situacao === "sem_condicoes" || item.situacao === "nao_tem") && !item.observacao.trim()
+        item => (item.situacao === "incompleto" || item.situacao === "ausente") && !item.observacao.trim()
       );
       if (missingObservation) {
         toast({ variant: "destructive", title: "Erro", description: "Observações são obrigatórias para itens incompletos ou ausentes" });

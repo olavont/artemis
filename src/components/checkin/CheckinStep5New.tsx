@@ -57,13 +57,13 @@ export function CheckinStep5New({
 }: CheckinStep5NewProps) {
 
   const getStatusIcon = (situacao: string) => {
-    if (situacao === "tem" || situacao === "em_condicoes") {
+    if (situacao === "presente" || situacao === "em_condicoes") {
       return <CheckCircle className="h-4 w-4 text-success" />;
     }
-    if (situacao === "sem_condicoes") {
+    if (situacao === "incompleto") {
       return <AlertTriangle className="h-4 w-4 text-warning" />;
     }
-    if (situacao === "nao_tem") {
+    if (situacao === "ausente") {
       return <XCircle className="h-4 w-4 text-destructive" />;
     }
     return null;
@@ -71,9 +71,9 @@ export function CheckinStep5New({
 
   const getSituacaoLabel = (situacao: string) => {
     const labels: Record<string, string> = {
-      tem: "Presente",
-      sem_condicoes: "Incompleto",
-      nao_tem: "Ausente",
+      presente: "Presente",
+      incompleto: "Incompleto",
+      ausente: "Ausente",
       em_condicoes: "Em condições"
     };
     return labels[situacao] || situacao;

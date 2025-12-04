@@ -210,27 +210,27 @@ export function CheckinStep3New({ viaturaId, data, onChange }: CheckinStep3NewPr
                     onValueChange={(value) => handleStatusChange(item.id, value)}
                     className="flex flex-wrap gap-3"
                   >
-                    <div className={`flex items-center space-x-2 p-2 rounded border transition-colors ${status.situacao === "tem" ? "border-green-500 bg-green-50 dark:bg-green-950/30" : "hover:bg-accent/50"}`}>
-                      <RadioGroupItem value="tem" id={`${item.id}-tem`} />
-                      <Label htmlFor={`${item.id}-tem`} className="font-normal cursor-pointer text-success">
+                    <div className={`flex items-center space-x-2 p-2 rounded border transition-colors ${status.situacao === "presente" ? "border-green-500 bg-green-50 dark:bg-green-950/30" : "hover:bg-accent/50"}`}>
+                      <RadioGroupItem value="presente" id={`${item.id}-presente`} />
+                      <Label htmlFor={`${item.id}-presente`} className="font-normal cursor-pointer text-success">
                         Presente
                       </Label>
                     </div>
-                    <div className={`flex items-center space-x-2 p-2 rounded border transition-colors ${status.situacao === "sem_condicoes" ? "border-orange-500 bg-orange-50 dark:bg-orange-950/30" : "hover:bg-accent/50"}`}>
-                      <RadioGroupItem value="sem_condicoes" id={`${item.id}-sem_condicoes`} />
-                      <Label htmlFor={`${item.id}-sem_condicoes`} className="font-normal cursor-pointer text-warning">
+                    <div className={`flex items-center space-x-2 p-2 rounded border transition-colors ${status.situacao === "incompleto" ? "border-orange-500 bg-orange-50 dark:bg-orange-950/30" : "hover:bg-accent/50"}`}>
+                      <RadioGroupItem value="incompleto" id={`${item.id}-incompleto`} />
+                      <Label htmlFor={`${item.id}-incompleto`} className="font-normal cursor-pointer text-warning">
                         Incompleto
                       </Label>
                     </div>
-                    <div className={`flex items-center space-x-2 p-2 rounded border transition-colors ${status.situacao === "nao_tem" ? "border-red-500 bg-red-50 dark:bg-red-950/30" : "hover:bg-accent/50"}`}>
-                      <RadioGroupItem value="nao_tem" id={`${item.id}-nao_tem`} />
-                      <Label htmlFor={`${item.id}-nao_tem`} className="font-normal cursor-pointer text-destructive">
+                    <div className={`flex items-center space-x-2 p-2 rounded border transition-colors ${status.situacao === "ausente" ? "border-red-500 bg-red-50 dark:bg-red-950/30" : "hover:bg-accent/50"}`}>
+                      <RadioGroupItem value="ausente" id={`${item.id}-ausente`} />
+                      <Label htmlFor={`${item.id}-ausente`} className="font-normal cursor-pointer text-destructive">
                         Ausente
                       </Label>
                     </div>
                   </RadioGroup>
 
-                  {(status.situacao === "sem_condicoes" || status.situacao === "nao_tem") && (
+                  {(status.situacao === "incompleto" || status.situacao === "ausente") && (
                     <Textarea
                       placeholder="Descreva a situação do item..."
                       value={status.observacao}
