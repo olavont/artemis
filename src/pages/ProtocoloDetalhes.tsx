@@ -215,9 +215,9 @@ export default function ProtocoloDetalhes() {
 
   const getSituacaoItemLabel = (situacao: string) => {
     const labels: Record<string, string> = {
-      tem: "Presente",
-      nao_tem: "Ausente",
-      sem_condicoes: "Incompleto",
+      presente: "Presente",
+      ausente: "Ausente",
+      incompleto: "Incompleto",
       sim: "Sim",
       nao: "Não",
       em_condicoes: "Em Condições",
@@ -228,10 +228,10 @@ export default function ProtocoloDetalhes() {
   };
 
   const getSituacaoItemColor = (situacao: string) => {
-    if (["tem", "sim", "em_condicoes", "bom"].includes(situacao)) {
+    if (["presente", "sim", "em_condicoes", "bom"].includes(situacao)) {
       return "text-green-600";
     }
-    if (["sem_condicoes"].includes(situacao)) {
+    if (["incompleto"].includes(situacao)) {
       return "text-orange-500";
     }
     return "text-red-500";

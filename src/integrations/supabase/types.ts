@@ -580,6 +580,9 @@ export type Database = {
         | "sem_condicoes"
         | "bom"
         | "mau"
+        | "presente"
+        | "incompleto"
+        | "ausente"
       situacao_licenciamento:
         | "regular"
         | "irregular"
@@ -752,6 +755,9 @@ export const Constants = {
         "sem_condicoes",
         "bom",
         "mau",
+        "presente",
+        "incompleto",
+        "ausente",
       ],
       situacao_licenciamento: [
         "regular",
