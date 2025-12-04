@@ -46,14 +46,22 @@ export default function Viaturas() {
   const checkUserRole = async () => {
     const userId = await getCurrentUserId();
     if (userId) {
-      const { data } = await supabase
-        .from("profiles")
-        .select("perfil")
-        .eq("id", userId)
-        .single();
-      
-      if (data) {
-        setIsGestor(data.perfil === "gestor" || data.perfil === "admin");
+      if (isKeycloakUser()) {
+        // Use proxy for Keycloak users
+        const { data, error } = await proxyFetch<any>("get_my_profile");
+        if (!error && data) {
+          setIsGestor(data.perfil === "gestor" || data.perfil === "admin");
+        }
+      } else {
+        const { data } = await supabase
+          .from("profiles")
+          .select("perfil")
+          .eq("id", userId)
+          .single();
+        
+        if (data) {
+          setIsGestor(data.perfil === "gestor" || data.perfil === "admin");
+        }
       }
     }
   };
@@ -92,45 +100,50 @@ export default function Viaturas() {
     };
 
     if (isEditMode && selectedViatura) {
-      const { error } = await supabase
-        .from("viaturas")
-        .update(dataToSave)
-        .eq("id", selectedViatura.id);
-
-      if (error) {
-        toast({
-          variant: "destructive",
-          title: "Erro ao atualizar viatura",
-          description: error.message,
-        });
+      // Update viatura
+      if (isKeycloakUser()) {
+        const { error } = await proxyFetch("update_viatura", { id: selectedViatura.id, viatura: dataToSave });
+        if (error) {
+          toast({ variant: "destructive", title: "Erro ao atualizar viatura", description: error.message });
+        } else {
+          toast({ title: "Viatura atualizada!", description: "A viatura foi atualizada com sucesso." });
+          setDialogOpen(false);
+          fetchViaturas();
+          resetForm();
+        }
       } else {
-        toast({
-          title: "Viatura atualizada!",
-          description: "A viatura foi atualizada com sucesso.",
-        });
-        setDialogOpen(false);
-        fetchViaturas();
-        resetForm();
+        const { error } = await supabase.from("viaturas").update(dataToSave).eq("id", selectedViatura.id);
+        if (error) {
+          toast({ variant: "destructive", title: "Erro ao atualizar viatura", description: error.message });
+        } else {
+          toast({ title: "Viatura atualizada!", description: "A viatura foi atualizada com sucesso." });
+          setDialogOpen(false);
+          fetchViaturas();
+          resetForm();
+        }
       }
     } else {
-      const { error } = await supabase
-        .from("viaturas")
-        .insert([dataToSave]);
-
-      if (error) {
-        toast({
-          variant: "destructive",
-          title: "Erro ao criar viatura",
-          description: error.message,
-        });
+      // Create viatura
+      if (isKeycloakUser()) {
+        const { error } = await proxyFetch("create_viatura", { viatura: dataToSave });
+        if (error) {
+          toast({ variant: "destructive", title: "Erro ao criar viatura", description: error.message });
+        } else {
+          toast({ title: "Viatura criada!", description: "A viatura foi cadastrada com sucesso." });
+          setDialogOpen(false);
+          fetchViaturas();
+          resetForm();
+        }
       } else {
-        toast({
-          title: "Viatura criada!",
-          description: "A viatura foi cadastrada com sucesso.",
-        });
-        setDialogOpen(false);
-        fetchViaturas();
-        resetForm();
+        const { error } = await supabase.from("viaturas").insert([dataToSave]);
+        if (error) {
+          toast({ variant: "destructive", title: "Erro ao criar viatura", description: error.message });
+        } else {
+          toast({ title: "Viatura criada!", description: "A viatura foi cadastrada com sucesso." });
+          setDialogOpen(false);
+          fetchViaturas();
+          resetForm();
+        }
       }
     }
   };
@@ -138,24 +151,24 @@ export default function Viaturas() {
   const handleDelete = async () => {
     if (!selectedViatura) return;
 
-    const { error } = await supabase
-      .from("viaturas")
-      .delete()
-      .eq("id", selectedViatura.id);
-
-    if (error) {
-      toast({
-        variant: "destructive",
-        title: "Erro ao excluir viatura",
-        description: error.message,
-      });
+    if (isKeycloakUser()) {
+      const { error } = await proxyFetch("delete_viatura", { id: selectedViatura.id });
+      if (error) {
+        toast({ variant: "destructive", title: "Erro ao excluir viatura", description: error.message });
+      } else {
+        toast({ title: "Viatura excluída!", description: "A viatura foi excluída com sucesso." });
+        setDeleteDialogOpen(false);
+        fetchViaturas();
+      }
     } else {
-      toast({
-        title: "Viatura excluída!",
-        description: "A viatura foi excluída com sucesso.",
-      });
-      setDeleteDialogOpen(false);
-      fetchViaturas();
+      const { error } = await supabase.from("viaturas").delete().eq("id", selectedViatura.id);
+      if (error) {
+        toast({ variant: "destructive", title: "Erro ao excluir viatura", description: error.message });
+      } else {
+        toast({ title: "Viatura excluída!", description: "A viatura foi excluída com sucesso." });
+        setDeleteDialogOpen(false);
+        fetchViaturas();
+      }
     }
   };
 
