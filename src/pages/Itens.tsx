@@ -8,12 +8,13 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Pencil } from "lucide-react";
+import { Plus, Pencil, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { isKeycloakUser, proxyFetch } from "@/hooks/useProxyData";
 
 export default function Itens() {
   const [itens, setItens] = useState<any[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any | null>(null);
   const [formData, setFormData] = useState<{
@@ -248,11 +249,30 @@ export default function Itens() {
               </div>
             </form>
           </DialogContent>
-        </Dialog>
+      </Dialog>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por nome, tipo ou categoria..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {itens.map((item) => (
+        {itens
+          .filter((item) =>
+            item.nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            item.tipo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            item.categoria?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            item.descricao?.toLowerCase().includes(searchTerm.toLowerCase())
+          )
+          .map((item) => (
           <Card key={item.id} className="hover:shadow-md transition-shadow">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">

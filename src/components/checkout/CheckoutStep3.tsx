@@ -165,14 +165,14 @@ export function CheckoutStep3({ protocoloId, data, onChange }: CheckoutStep3Prop
                     <SelectValue placeholder="Selecione o status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="em_condicoes">Em Condições</SelectItem>
-                    <SelectItem value="danificado">Danificado</SelectItem>
+                    <SelectItem value="presente">Presente</SelectItem>
+                    <SelectItem value="incompleto">Incompleto</SelectItem>
                     <SelectItem value="ausente">Ausente</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
-              {(itemData.status !== "em_condicoes" && itemData.status) && (
+              {(itemData.status === "incompleto" || itemData.status === "ausente") && (
                 <div className="space-y-2">
                   <Label>Observações *</Label>
                   <Textarea
