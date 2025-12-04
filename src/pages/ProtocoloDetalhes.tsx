@@ -10,34 +10,37 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Separator } from "@/components/ui/separator";
 import html2pdf from "html2pdf.js";
-
 export default function ProtocoloDetalhes() {
-  const { id } = useParams<{ id: string }>();
+  const {
+    id
+  } = useParams<{
+    id: string;
+  }>();
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const {
+    toast
+  } = useToast();
   const [protocolo, setProtocolo] = useState<any>(null);
   const [fotos, setFotos] = useState<any[]>([]);
   const [itensViatura, setItensViatura] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const printRef = useRef<HTMLDivElement>(null);
-
   useEffect(() => {
     if (id) {
       fetchProtocolo();
       fetchFotos();
     }
   }, [id]);
-
   useEffect(() => {
     if (protocolo?.viatura_id) {
       fetchItensViatura(protocolo.viatura_id);
     }
   }, [protocolo?.viatura_id]);
-
   const fetchProtocolo = async () => {
-    const { data, error } = await supabase
-      .from("protocolos_empenho")
-      .select(`
+    const {
+      data,
+      error
+    } = await supabase.from("protocolos_empenho").select(`
         *,
         viaturas (prefixo, placa, marca, modelo, km_inicial, km_atual),
         profiles!protocolos_empenho_agente_responsavel_id_fkey (nome, matricula),
@@ -88,15 +91,12 @@ export default function ProtocoloDetalhes() {
             )
           )
         )
-      `)
-      .eq("id", id)
-      .single();
-
+      `).eq("id", id).single();
     if (error) {
       toast({
         variant: "destructive",
         title: "Erro ao carregar protocolo",
-        description: error.message,
+        description: error.message
       });
       navigate("/protocolos");
     } else {
@@ -104,92 +104,97 @@ export default function ProtocoloDetalhes() {
     }
     setLoading(false);
   };
-
   const fetchFotos = async () => {
     // Buscar fotos do check-in (protocolo_empenho_id)
-    const { data: fotosEmpenho } = await supabase
-      .from("fotos_checklist")
-      .select("*")
-      .eq("protocolo_empenho_id", id);
-    
+    const {
+      data: fotosEmpenho
+    } = await supabase.from("fotos_checklist").select("*").eq("protocolo_empenho_id", id);
+
     // Buscar fotos do check-out (protocolo_devolucao_id) se existir devolução
-    const { data: protocoloDevolucao } = await supabase
-      .from("protocolos_devolucao")
-      .select("id")
-      .eq("protocolo_empenho_id", id)
-      .maybeSingle();
-    
+    const {
+      data: protocoloDevolucao
+    } = await supabase.from("protocolos_devolucao").select("id").eq("protocolo_empenho_id", id).maybeSingle();
     let fotosDevolucao: any[] = [];
     if (protocoloDevolucao) {
-      const { data } = await supabase
-        .from("fotos_checklist")
-        .select("*")
-        .eq("protocolo_devolucao_id", protocoloDevolucao.id);
+      const {
+        data
+      } = await supabase.from("fotos_checklist").select("*").eq("protocolo_devolucao_id", protocoloDevolucao.id);
       fotosDevolucao = data || [];
     }
-    
     setFotos([...(fotosEmpenho || []), ...fotosDevolucao]);
   };
-
   const fetchItensViatura = async (viaturaId: string) => {
-    const { data } = await supabase
-      .from("viatura_itens_config")
-      .select(`
+    const {
+      data
+    } = await supabase.from("viatura_itens_config").select(`
         *,
         itens_viatura (id, nome, categoria, tipo)
-      `)
-      .eq("viatura_id", viaturaId);
-    
+      `).eq("viatura_id", viaturaId);
     setItensViatura(data || []);
   };
-
   const handlePrintPDF = async () => {
     if (!printRef.current) return;
-
     toast({
       title: "Gerando PDF...",
-      description: "Aguarde enquanto o documento é preparado.",
+      description: "Aguarde enquanto o documento é preparado."
     });
-
     const opt = {
       margin: [10, 10, 10, 10],
       filename: `protocolo_${protocolo.numero_protocolo}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { 
+      image: {
+        type: 'jpeg',
+        quality: 0.98
+      },
+      html2canvas: {
         scale: 2,
         useCORS: true,
         logging: false,
         allowTaint: true
       },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      jsPDF: {
+        unit: 'mm',
+        format: 'a4',
+        orientation: 'portrait'
+      }
     };
-
     try {
       await html2pdf().set(opt).from(printRef.current).save();
       toast({
         title: "PDF gerado!",
-        description: "O arquivo foi baixado com sucesso.",
+        description: "O arquivo foi baixado com sucesso."
       });
     } catch (error) {
       toast({
         variant: "destructive",
         title: "Erro ao gerar PDF",
-        description: "Tente novamente.",
+        description: "Tente novamente."
       });
     }
   };
-
   const getStatusBadge = (status: string) => {
-    const statusMap: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-      em_andamento: { label: "Em Andamento", variant: "secondary" },
-      concluido: { label: "Concluído", variant: "default" },
-      cancelado: { label: "Cancelado", variant: "destructive" },
+    const statusMap: Record<string, {
+      label: string;
+      variant: "default" | "secondary" | "destructive" | "outline";
+    }> = {
+      em_andamento: {
+        label: "Em Andamento",
+        variant: "secondary"
+      },
+      concluido: {
+        label: "Concluído",
+        variant: "default"
+      },
+      cancelado: {
+        label: "Cancelado",
+        variant: "destructive"
+      }
     };
-
-    const statusInfo = statusMap[status] || { label: status, variant: "outline" as const };
+    const statusInfo = statusMap[status] || {
+      label: status,
+      variant: "outline" as const
+    };
     return <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>;
   };
-
   const getNivelCombustivelLabel = (nivel: number | null) => {
     if (!nivel) return "-";
     if (nivel <= 1) return "1/4";
@@ -197,7 +202,6 @@ export default function ProtocoloDetalhes() {
     if (nivel <= 3) return "3/4";
     return "4/4 (Cheio)";
   };
-
   const getNivelOleoLabel = (nivel: string | null) => {
     if (!nivel) return "-";
     const labels: Record<string, string> = {
@@ -207,12 +211,10 @@ export default function ProtocoloDetalhes() {
     };
     return labels[nivel] || nivel;
   };
-
   const getCondicoesMecanicasLabel = (condicao: string | null) => {
     if (!condicao) return "-";
     return condicao === "em_condicoes" ? "Em Condições" : "Sem Condições";
   };
-
   const getSituacaoItemLabel = (situacao: string) => {
     const labels: Record<string, string> = {
       presente: "Presente",
@@ -226,7 +228,6 @@ export default function ProtocoloDetalhes() {
     };
     return labels[situacao] || situacao;
   };
-
   const getSituacaoItemColor = (situacao: string) => {
     if (["presente", "sim", "em_condicoes", "bom"].includes(situacao)) {
       return "text-green-600";
@@ -236,29 +237,20 @@ export default function ProtocoloDetalhes() {
     }
     return "text-red-500";
   };
-
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
+    return <div className="flex items-center justify-center min-h-[400px]">
         <p className="text-muted-foreground">Carregando...</p>
-      </div>
-    );
+      </div>;
   }
-
   if (!protocolo) {
     return null;
   }
-
   const checklistEmpenho = protocolo.checklists_veiculo?.find((c: any) => c.tipo_checklist === "empenho");
   const devolucao = protocolo.protocolos_devolucao?.[0];
-  const checklistDevolucao = devolucao?.checklists_veiculo?.[0] || 
-    protocolo.checklists_veiculo?.find((c: any) => c.tipo_checklist === "devolucao");
-
+  const checklistDevolucao = devolucao?.checklists_veiculo?.[0] || protocolo.checklists_veiculo?.find((c: any) => c.tipo_checklist === "devolucao");
   const fotosEmpenho = fotos.filter(f => f.protocolo_empenho_id && !f.protocolo_devolucao_id);
   const fotosDevolucao = fotos.filter(f => f.protocolo_devolucao_id);
-
-  return (
-    <div className="space-y-6">
+  return <div className="space-y-6">
       <div className="flex items-center justify-between print:hidden">
         <div className="flex items-center gap-4">
           <Button variant="outline" size="icon" onClick={() => navigate("/protocolos")}>
@@ -332,7 +324,9 @@ export default function ProtocoloDetalhes() {
                   <Calendar className="w-4 h-4 text-muted-foreground" />
                   <span className="text-sm text-muted-foreground">Data/Hora:</span>
                   <span className="font-medium">
-                    {format(new Date(protocolo.data_hora_empenho), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                    {format(new Date(protocolo.data_hora_empenho), "dd/MM/yyyy 'às' HH:mm", {
+                    locale: ptBR
+                  })}
                   </span>
                 </div>
                 <div className="flex items-start gap-2">
@@ -384,8 +378,7 @@ export default function ProtocoloDetalhes() {
               </div>
 
               {/* Itens Verificados */}
-              {itensViatura.length > 0 && (
-                <>
+              {itensViatura.length > 0 && <>
                   <Separator />
                   <div className="space-y-2">
                     <h4 className="font-semibold flex items-center gap-2 text-sm">
@@ -394,40 +387,28 @@ export default function ProtocoloDetalhes() {
                     </h4>
                     <div className="space-y-1">
                       {itensViatura.map((config: any) => {
-                        const validacao = checklistEmpenho?.checklist_itens?.find(
-                          (item: any) => item.item_viatura_id === config.item_viatura_id || item.itens_viatura?.id === config.itens_viatura?.id
-                        );
-                        return (
-                          <div key={config.id} className="flex items-center justify-between text-sm p-1 border-b">
+                    const validacao = checklistEmpenho?.checklist_itens?.find((item: any) => item.item_viatura_id === config.item_viatura_id || item.itens_viatura?.id === config.itens_viatura?.id);
+                    return <div key={config.id} className="flex items-center justify-between text-sm p-1 border-b">
                             <span>{config.itens_viatura?.nome}</span>
-                            {validacao ? (
-                              <span className={`font-medium ${getSituacaoItemColor(validacao.situacao)}`}>
+                            {validacao ? <span className={`font-medium ${getSituacaoItemColor(validacao.situacao)}`}>
                                 {getSituacaoItemLabel(validacao.situacao)}
-                              </span>
-                            ) : (
-                              <span className="text-muted-foreground">Não verificado</span>
-                            )}
-                          </div>
-                        );
-                      })}
+                              </span> : <span className="text-muted-foreground">Não verificado</span>}
+                          </div>;
+                  })}
                     </div>
                   </div>
-                </>
-              )}
+                </>}
 
-              {checklistEmpenho?.observacoes && (
-                <>
+              {checklistEmpenho?.observacoes && <>
                   <Separator />
                   <div>
                     <p className="text-sm text-muted-foreground">Observações:</p>
                     <p className="text-sm">{checklistEmpenho.observacoes}</p>
                   </div>
-                </>
-              )}
+                </>}
 
               {/* Fotos do Check-In */}
-              {fotosEmpenho.length > 0 && (
-                <>
+              {fotosEmpenho.length > 0 && <>
                   <Separator />
                   <div className="space-y-2">
                     <h4 className="font-semibold flex items-center gap-2 text-sm">
@@ -435,23 +416,15 @@ export default function ProtocoloDetalhes() {
                       Fotos
                     </h4>
                     <div className="grid grid-cols-2 gap-2">
-                      {fotosEmpenho.map((foto) => (
-                        <div key={foto.id} className="space-y-1">
-                          <img 
-                            src={foto.url_foto} 
-                            alt={foto.descricao || "Foto"}
-                            className="w-full h-24 object-cover rounded border"
-                            crossOrigin="anonymous"
-                          />
+                      {fotosEmpenho.map(foto => <div key={foto.id} className="space-y-1">
+                          <img src={foto.url_foto} alt={foto.descricao || "Foto"} className="w-full h-24 object-cover rounded border" crossOrigin="anonymous" />
                           <p className="text-xs text-center text-muted-foreground capitalize">
                             {foto.descricao?.replace(/_/g, " ") || "Foto"}
                           </p>
-                        </div>
-                      ))}
+                        </div>)}
                     </div>
                   </div>
-                </>
-              )}
+                </>}
             </CardContent>
           </Card>
 
@@ -469,7 +442,9 @@ export default function ProtocoloDetalhes() {
                   <Calendar className="w-4 h-4 text-muted-foreground" />
                   <span className="text-sm text-muted-foreground">Data/Hora:</span>
                   <span className="font-medium">
-                    {devolucao ? format(new Date(devolucao.data_hora_devolucao), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR }) : "-"}
+                    {devolucao ? format(new Date(devolucao.data_hora_devolucao), "dd/MM/yyyy 'às' HH:mm", {
+                    locale: ptBR
+                  }) : "-"}
                   </span>
                 </div>
                 <div className="flex items-start gap-2">
@@ -520,19 +495,11 @@ export default function ProtocoloDetalhes() {
                 </div>
 
                 {/* KM Rodados */}
-                {checklistEmpenho && checklistDevolucao && (
-                  <div className="p-3 bg-primary/10 rounded-lg text-center">
-                    <p className="text-sm text-muted-foreground">KM Rodados</p>
-                    <p className="font-bold text-xl text-primary">
-                      {((checklistDevolucao.km_atual || 0) - (checklistEmpenho.km_atual || 0)).toLocaleString('pt-BR')} km
-                    </p>
-                  </div>
-                )}
+                {checklistEmpenho && checklistDevolucao}
               </div>
 
               {/* Itens Verificados */}
-              {itensViatura.length > 0 && (
-                <>
+              {itensViatura.length > 0 && <>
                   <Separator />
                   <div className="space-y-2">
                     <h4 className="font-semibold flex items-center gap-2 text-sm">
@@ -541,40 +508,28 @@ export default function ProtocoloDetalhes() {
                     </h4>
                     <div className="space-y-1">
                       {itensViatura.map((config: any) => {
-                        const validacao = checklistDevolucao?.checklist_itens?.find(
-                          (item: any) => item.item_viatura_id === config.item_viatura_id || item.itens_viatura?.id === config.itens_viatura?.id
-                        );
-                        return (
-                          <div key={config.id} className="flex items-center justify-between text-sm p-1 border-b">
+                    const validacao = checklistDevolucao?.checklist_itens?.find((item: any) => item.item_viatura_id === config.item_viatura_id || item.itens_viatura?.id === config.itens_viatura?.id);
+                    return <div key={config.id} className="flex items-center justify-between text-sm p-1 border-b">
                             <span>{config.itens_viatura?.nome}</span>
-                            {validacao ? (
-                              <span className={`font-medium ${getSituacaoItemColor(validacao.situacao)}`}>
+                            {validacao ? <span className={`font-medium ${getSituacaoItemColor(validacao.situacao)}`}>
                                 {getSituacaoItemLabel(validacao.situacao)}
-                              </span>
-                            ) : (
-                              <span className="text-muted-foreground">Não verificado</span>
-                            )}
-                          </div>
-                        );
-                      })}
+                              </span> : <span className="text-muted-foreground">Não verificado</span>}
+                          </div>;
+                  })}
                     </div>
                   </div>
-                </>
-              )}
+                </>}
 
-              {checklistDevolucao?.observacoes && (
-                <>
+              {checklistDevolucao?.observacoes && <>
                   <Separator />
                   <div>
                     <p className="text-sm text-muted-foreground">Observações:</p>
                     <p className="text-sm">{checklistDevolucao.observacoes}</p>
                   </div>
-                </>
-              )}
+                </>}
 
               {/* Fotos do Check-Out */}
-              {fotosDevolucao.length > 0 && (
-                <>
+              {fotosDevolucao.length > 0 && <>
                   <Separator />
                   <div className="space-y-2">
                     <h4 className="font-semibold flex items-center gap-2 text-sm">
@@ -582,61 +537,46 @@ export default function ProtocoloDetalhes() {
                       Fotos
                     </h4>
                     <div className="grid grid-cols-2 gap-2">
-                      {fotosDevolucao.map((foto) => (
-                        <div key={foto.id} className="space-y-1">
-                          <img 
-                            src={foto.url_foto} 
-                            alt={foto.descricao || "Foto"}
-                            className="w-full h-24 object-cover rounded border"
-                            crossOrigin="anonymous"
-                          />
+                      {fotosDevolucao.map(foto => <div key={foto.id} className="space-y-1">
+                          <img src={foto.url_foto} alt={foto.descricao || "Foto"} className="w-full h-24 object-cover rounded border" crossOrigin="anonymous" />
                           <p className="text-xs text-center text-muted-foreground capitalize">
                             {foto.descricao?.replace(/_/g, " ") || "Foto"}
                           </p>
-                        </div>
-                      ))}
+                        </div>)}
                     </div>
                   </div>
-                </>
-              )}
+                </>}
 
-              {!devolucao && (
-                <div className="text-center py-8 text-muted-foreground">
+              {!devolucao && <div className="text-center py-8 text-muted-foreground">
                   <p className="italic">Check-out ainda não realizado</p>
-                </div>
-              )}
+                </div>}
             </CardContent>
           </Card>
         </div>
 
         {/* Observações Gerais */}
-        {(protocolo.observacoes || devolucao?.observacoes) && (
-          <Card>
+        {(protocolo.observacoes || devolucao?.observacoes) && <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-lg">Observações Gerais</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {protocolo.observacoes && (
-                <div>
+              {protocolo.observacoes && <div>
                   <p className="text-sm font-medium text-muted-foreground">Empenho:</p>
                   <p className="whitespace-pre-wrap">{protocolo.observacoes}</p>
-                </div>
-              )}
-              {devolucao?.observacoes && (
-                <div>
+                </div>}
+              {devolucao?.observacoes && <div>
                   <p className="text-sm font-medium text-muted-foreground">Devolução:</p>
                   <p className="whitespace-pre-wrap">{devolucao.observacoes}</p>
-                </div>
-              )}
+                </div>}
             </CardContent>
-          </Card>
-        )}
+          </Card>}
 
         {/* Rodapé para impressão */}
         <div className="text-center text-xs text-muted-foreground pt-4 border-t">
-          <p>Documento gerado em {format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</p>
+          <p>Documento gerado em {format(new Date(), "dd/MM/yyyy 'às' HH:mm", {
+            locale: ptBR
+          })}</p>
         </div>
       </div>
-    </div>
-  );
+    </div>;
 }
