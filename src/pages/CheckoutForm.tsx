@@ -2,26 +2,67 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, CheckCircle, AlertCircle } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { ArrowLeft, ArrowRight, CheckCircle, Loader2 } from "lucide-react";
 import { getCurrentUserId } from "@/hooks/useProxyData";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Progress } from "@/components/ui/progress";
+import { CheckinStep1New } from "@/components/checkin/CheckinStep1New";
+import { CheckinStep2New } from "@/components/checkin/CheckinStep2New";
+import { CheckinStep3New } from "@/components/checkin/CheckinStep3New";
+import { CheckinStep4New } from "@/components/checkin/CheckinStep4New";
+import { CheckinStep5New } from "@/components/checkin/CheckinStep5New";
+
+interface PhotoData {
+  tipo: string;
+  file: File;
+  preview: string;
+}
+
+interface ItemStatus {
+  item_id: string;
+  situacao: string;
+  observacao: string;
+}
 
 export default function CheckoutForm() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
+  
   const [protocolo, setProtocolo] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [kmAtual, setKmAtual] = useState("");
-  const [observacoes, setObservacoes] = useState("");
-  const [kmError, setKmError] = useState("");
-  const [kmMinimo, setKmMinimo] = useState(0);
+  const [currentStep, setCurrentStep] = useState(1);
+  const [items, setItems] = useState<{ id: string; nome: string }[]>([]);
+
+  // Step 1 data
+  const [step1Data, setStep1Data] = useState({
+    agente_nome: "",
+    agentes_acompanhantes: [] as string[],
+    motivo: "",
+    km_atual: "",
+    latitude: null as number | null,
+    longitude: null as number | null,
+    local: ""
+  });
+
+  // Step 2 data
+  const [step2Data, setStep2Data] = useState({
+    nivel_combustivel: "",
+    nivel_oleo: "",
+    condicoes_mecanicas: "",
+    condicoes_mecanicas_observacao: ""
+  });
+
+  // Step 3 data
+  const [step3Data, setStep3Data] = useState<ItemStatus[]>([]);
+  const [hasItems, setHasItems] = useState(false);
+
+  // Step 4 data
+  const [step4Data, setStep4Data] = useState<PhotoData[]>([]);
+
+  // Step 5 data
+  const [observacaoGeral, setObservacaoGeral] = useState("");
 
   useEffect(() => {
     if (id) fetchProtocolo();
@@ -39,149 +80,370 @@ export default function CheckoutForm() {
       navigate("/checkout");
     } else {
       setProtocolo(data);
-      // Use km_atual if available, otherwise use km_inicial
-      const currentKm = data.viaturas?.km_atual || data.viaturas?.km_inicial || 0;
-      setKmMinimo(currentKm);
+      if (data.viaturas) {
+        fetchItems(data.viaturas.id);
+      }
     }
     setLoading(false);
   };
 
-  const handleKmChange = (value: string) => {
-    setKmAtual(value);
-    const kmValue = parseInt(value) || 0;
-    if (kmValue < kmMinimo) {
-      setKmError(`A quilometragem não pode ser menor que ${kmMinimo.toLocaleString('pt-BR')} km (atual da viatura)`);
-    } else {
-      setKmError("");
+  const fetchItems = async (viaturaId: string) => {
+    const { data, error } = await supabase
+      .from("viatura_itens_config")
+      .select(`
+        itens_viatura (id, nome)
+      `)
+      .eq("viatura_id", viaturaId);
+
+    if (!error && data) {
+      const formattedItems = data
+        .filter(item => item.itens_viatura)
+        .map(item => ({
+          id: item.itens_viatura!.id,
+          nome: item.itens_viatura!.nome
+        }));
+      setItems(formattedItems);
+      setHasItems(formattedItems.length > 0);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    const kmValue = parseInt(kmAtual) || 0;
+  const handleStep1Change = (field: string, value: string | string[] | number | null) => {
+    setStep1Data(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleStep2Change = (field: string, value: string) => {
+    setStep2Data(prev => ({ ...prev, [field]: value }));
+  };
+
+  const getKmMinimo = () => {
+    return protocolo?.viaturas?.km_atual || protocolo?.viaturas?.km_inicial || 0;
+  };
+
+  const validateStep1 = () => {
+    if (!step1Data.agente_nome.trim()) {
+      toast({ variant: "destructive", title: "Erro", description: "Nome do agente é obrigatório" });
+      return false;
+    }
+    if (!step1Data.motivo.trim()) {
+      toast({ variant: "destructive", title: "Erro", description: "Motivo é obrigatório" });
+      return false;
+    }
+    if (!step1Data.km_atual) {
+      toast({ variant: "destructive", title: "Erro", description: "Quilometragem é obrigatória" });
+      return false;
+    }
+    const kmValue = parseInt(step1Data.km_atual);
+    const kmMinimo = getKmMinimo();
     if (kmValue < kmMinimo) {
-      toast({ variant: "destructive", title: "Erro", description: `A quilometragem não pode ser menor que ${kmMinimo.toLocaleString('pt-BR')} km` });
-      return;
+      toast({ variant: "destructive", title: "Erro", description: `Quilometragem não pode ser menor que ${kmMinimo.toLocaleString('pt-BR')} km` });
+      return false;
+    }
+    if (!step1Data.local.trim()) {
+      toast({ variant: "destructive", title: "Erro", description: "Local de devolução é obrigatório" });
+      return false;
+    }
+    return true;
+  };
+
+  const validateStep2 = () => {
+    if (!step2Data.nivel_combustivel) {
+      toast({ variant: "destructive", title: "Erro", description: "Nível de combustível é obrigatório" });
+      return false;
+    }
+    if (!step2Data.nivel_oleo) {
+      toast({ variant: "destructive", title: "Erro", description: "Nível de óleo é obrigatório" });
+      return false;
+    }
+    if (!step2Data.condicoes_mecanicas) {
+      toast({ variant: "destructive", title: "Erro", description: "Condições mecânicas é obrigatório" });
+      return false;
+    }
+    if (step2Data.condicoes_mecanicas === "sem_condicoes" && !step2Data.condicoes_mecanicas_observacao.trim()) {
+      toast({ variant: "destructive", title: "Erro", description: "Observação sobre condições mecânicas é obrigatória" });
+      return false;
+    }
+    return true;
+  };
+
+  const validateStep3 = () => {
+    if (hasItems) {
+      const missingStatus = step3Data.some(item => !item.situacao);
+      if (missingStatus) {
+        toast({ variant: "destructive", title: "Erro", description: "Todos os itens devem ser verificados" });
+        return false;
+      }
+      
+      const missingObservation = step3Data.some(
+        item => (item.situacao === "incompleto" || item.situacao === "ausente") && !item.observacao.trim()
+      );
+      if (missingObservation) {
+        toast({ variant: "destructive", title: "Erro", description: "Observações são obrigatórias para itens incompletos ou ausentes" });
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const validateStep4 = () => {
+    const requiredPhotos = ["frente", "lateral_esquerda", "lateral_direita", "traseira"];
+    const uploadedTypes = step4Data.map(p => p.tipo);
+    const missing = requiredPhotos.filter(t => !uploadedTypes.includes(t));
+    
+    if (missing.length > 0) {
+      toast({ variant: "destructive", title: "Erro", description: "Todas as 4 fotos são obrigatórias" });
+      return false;
+    }
+    return true;
+  };
+
+  const nextStep = () => {
+    if (currentStep === 1 && !validateStep1()) return;
+    if (currentStep === 2 && !validateStep2()) return;
+    if (currentStep === 3 && !validateStep3()) return;
+    if (currentStep === 4 && !validateStep4()) return;
+    
+    setCurrentStep(prev => Math.min(prev + 1, 5));
+  };
+
+  const prevStep = () => {
+    setCurrentStep(prev => Math.max(prev - 1, 1));
+  };
+
+  const uploadPhoto = async (photo: PhotoData, devolucaoId: string) => {
+    const fileExt = photo.file.name.split('.').pop();
+    const fileName = `devolucao/${devolucaoId}/${photo.tipo}.${fileExt}`;
+    
+    const { error: uploadError } = await supabase.storage
+      .from("fotos-checklist")
+      .upload(fileName, photo.file);
+
+    if (uploadError) {
+      console.error("Error uploading photo:", uploadError);
+      return null;
     }
 
+    const { data: { publicUrl } } = supabase.storage
+      .from("fotos-checklist")
+      .getPublicUrl(fileName);
+
+    return publicUrl;
+  };
+
+  const handleSubmit = async () => {
     setSaving(true);
 
-    const userId = await getCurrentUserId();
-    if (!userId) {
-      toast({ variant: "destructive", title: "Erro", description: "Usuário não autenticado" });
+    try {
+      const userId = await getCurrentUserId();
+      if (!userId) {
+        toast({ variant: "destructive", title: "Erro", description: "Usuário não autenticado" });
+        setSaving(false);
+        return;
+      }
+
+      const kmValue = parseInt(step1Data.km_atual);
+
+      // Create return protocol
+      const { data: devolucao, error: devolucaoError } = await supabase
+        .from("protocolos_devolucao")
+        .insert({
+          protocolo_empenho_id: id,
+          agente_responsavel_id: userId,
+          observacoes: `${step1Data.motivo}\n\n${observacaoGeral}`.trim(),
+          local_devolucao: step1Data.local,
+          latitude_devolucao: step1Data.latitude,
+          longitude_devolucao: step1Data.longitude
+        })
+        .select()
+        .single();
+
+      if (devolucaoError) {
+        toast({ variant: "destructive", title: "Erro", description: devolucaoError.message });
+        setSaving(false);
+        return;
+      }
+
+      // Create checklist
+      const { data: checklist, error: checklistError } = await supabase
+        .from("checklists_veiculo")
+        .insert({
+          protocolo_devolucao_id: devolucao.id,
+          tipo_checklist: "devolucao",
+          km_atual: kmValue,
+          nivel_oleo: step2Data.nivel_oleo,
+          nivel_combustivel: parseFloat(step2Data.nivel_combustivel.replace("/", ".")) || null,
+          condicoes_mecanicas: step2Data.condicoes_mecanicas as "em_condicoes" | "sem_condicoes",
+          observacoes: step2Data.condicoes_mecanicas_observacao || null
+        })
+        .select()
+        .single();
+
+      if (checklistError) {
+        console.error("Checklist error:", checklistError);
+      }
+
+      // Insert checklist items
+      if (checklist && step3Data.length > 0) {
+        const itemsToInsert = step3Data
+          .filter(item => item.situacao)
+          .map(item => ({
+            checklist_veiculo_id: checklist.id,
+            item_viatura_id: item.item_id,
+            situacao: item.situacao as any,
+            observacoes: item.observacao || null
+          }));
+
+        if (itemsToInsert.length > 0) {
+          await supabase.from("checklist_itens").insert(itemsToInsert);
+        }
+      }
+
+      // Upload photos
+      for (const photo of step4Data) {
+        const url = await uploadPhoto(photo, devolucao.id);
+        if (url) {
+          await supabase.from("fotos_checklist").insert({
+            protocolo_devolucao_id: devolucao.id,
+            checklist_veiculo_id: checklist?.id || null,
+            tipo_foto: "veiculo_geral",
+            url_foto: url,
+            descricao: photo.tipo
+          });
+        }
+      }
+
+      // Update protocol status
+      await supabase
+        .from("protocolos_empenho")
+        .update({ status: "concluido" })
+        .eq("id", id);
+
+      // Update vehicle status and km_atual
+      await supabase
+        .from("viaturas")
+        .update({ 
+          status_operacional: "disponivel",
+          km_atual: kmValue 
+        })
+        .eq("id", protocolo.viaturas.id);
+
+      toast({ title: "Check-Out realizado!", description: "Viatura devolvida com sucesso" });
+      navigate("/");
+    } catch (error) {
+      console.error("Error submitting checkout:", error);
+      toast({ variant: "destructive", title: "Erro", description: "Ocorreu um erro ao processar o check-out" });
+    } finally {
       setSaving(false);
-      return;
     }
-
-    // Create return protocol
-    const { data: devolucao, error: devolucaoError } = await supabase
-      .from("protocolos_devolucao")
-      .insert({
-        protocolo_empenho_id: id,
-        agente_responsavel_id: userId,
-        observacoes,
-      })
-      .select()
-      .single();
-
-    if (devolucaoError) {
-      toast({ variant: "destructive", title: "Erro", description: devolucaoError.message });
-      setSaving(false);
-      return;
-    }
-
-    // Create checklist
-    await supabase.from("checklists_veiculo").insert({
-      protocolo_devolucao_id: devolucao.id,
-      tipo_checklist: "devolucao",
-      km_atual: kmValue,
-      observacoes,
-    });
-
-    // Update protocol status
-    await supabase
-      .from("protocolos_empenho")
-      .update({ status: "concluido" })
-      .eq("id", id);
-
-    // Update vehicle status and km_atual (not km_inicial)
-    await supabase
-      .from("viaturas")
-      .update({ 
-        status_operacional: "disponivel",
-        km_atual: kmValue 
-      })
-      .eq("id", protocolo.viaturas.id);
-
-    toast({ title: "Check-Out realizado!", description: "Viatura devolvida com sucesso" });
-    navigate("/");
   };
 
   if (loading) return <div className="text-center py-12">Carregando...</div>;
   if (!protocolo) return null;
 
+  const viatura = protocolo.viaturas;
+  const kmMinimo = getKmMinimo();
+  const progress = (currentStep / 5) * 100;
+
   return (
-    <div className="space-y-6 max-w-2xl mx-auto">
+    <div className="space-y-6 max-w-3xl mx-auto">
       <div className="flex items-center gap-4">
         <Button variant="outline" size="icon" onClick={() => navigate("/checkout")}>
           <ArrowLeft className="w-4 h-4" />
         </Button>
-        <div>
-          <h1 className="text-3xl font-bold">Check-Out</h1>
-          <p className="text-muted-foreground">{protocolo.viaturas?.prefixo} - {protocolo.numero_protocolo}</p>
+        <div className="flex-1">
+          <h1 className="text-2xl font-bold">Check-Out (Devolução)</h1>
+          <p className="text-muted-foreground">{viatura?.prefixo} - {protocolo.numero_protocolo}</p>
         </div>
+        <span className="text-sm text-muted-foreground">Etapa {currentStep} de 5</span>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Informações da Devolução</CardTitle>
-          <CardDescription>Preencha os dados para finalizar a devolução</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="km">Quilometragem Atual *</Label>
-              <Input
-                id="km"
-                type="number"
-                value={kmAtual}
-                onChange={(e) => handleKmChange(e.target.value)}
-                placeholder={`Mínimo: ${kmMinimo.toLocaleString('pt-BR')} km`}
-                required
-                min={kmMinimo}
-              />
-              {kmError && (
-                <Alert variant="destructive" className="py-2">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>{kmError}</AlertDescription>
-                </Alert>
-              )}
-              <p className="text-sm text-muted-foreground">
-                KM atual da viatura: {kmMinimo.toLocaleString('pt-BR')} km
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="obs">Observações</Label>
-              <Textarea
-                id="obs"
-                value={observacoes}
-                onChange={(e) => setObservacoes(e.target.value)}
-                placeholder="Observações gerais..."
-                rows={4}
-              />
-            </div>
-            <Button 
-              type="submit" 
-              className="w-full bg-secondary hover:bg-secondary/90 text-secondary-foreground" 
-              disabled={saving || !!kmError}
-            >
-              <CheckCircle className="w-4 h-4 mr-2" />
-              {saving ? "Processando..." : "Confirmar Devolução"}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+      <Progress value={progress} className="h-2" />
+
+      {currentStep === 1 && (
+        <CheckinStep1New
+          data={step1Data}
+          onChange={handleStep1Change}
+          vehicleInfo={`${viatura?.prefixo} - ${viatura?.marca} ${viatura?.modelo}`}
+          kmMinimo={kmMinimo}
+        />
+      )}
+
+      {currentStep === 2 && (
+        <CheckinStep2New
+          data={step2Data}
+          onChange={handleStep2Change}
+        />
+      )}
+
+      {currentStep === 3 && viatura && (
+        <CheckinStep3New
+          viaturaId={viatura.id}
+          data={step3Data}
+          onChange={setStep3Data}
+        />
+      )}
+
+      {currentStep === 4 && (
+        <CheckinStep4New
+          data={step4Data}
+          onChange={setStep4Data}
+        />
+      )}
+
+      {currentStep === 5 && viatura && (
+        <CheckinStep5New
+          viaturaInfo={{
+            prefixo: viatura.prefixo,
+            placa: viatura.placa,
+            marca: viatura.marca || "",
+            modelo: viatura.modelo || ""
+          }}
+          step1Data={step1Data}
+          step2Data={step2Data}
+          step3Data={step3Data}
+          step4Data={step4Data}
+          items={items}
+          observacaoGeral={observacaoGeral}
+          onObservacaoChange={setObservacaoGeral}
+        />
+      )}
+
+      <div className="flex justify-between">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={prevStep}
+          disabled={currentStep === 1}
+        >
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Anterior
+        </Button>
+
+        {currentStep < 5 ? (
+          <Button type="button" onClick={nextStep}>
+            Próximo
+            <ArrowRight className="w-4 h-4 ml-2" />
+          </Button>
+        ) : (
+          <Button 
+            type="button" 
+            onClick={handleSubmit} 
+            disabled={saving}
+            className="bg-success hover:bg-success/90 text-success-foreground"
+          >
+            {saving ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Processando...
+              </>
+            ) : (
+              <>
+                <CheckCircle className="w-4 h-4 mr-2" />
+                Confirmar Devolução
+              </>
+            )}
+          </Button>
+        )}
+      </div>
     </div>
   );
 }
