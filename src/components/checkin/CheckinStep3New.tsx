@@ -210,19 +210,19 @@ export function CheckinStep3New({ viaturaId, data, onChange }: CheckinStep3NewPr
                     onValueChange={(value) => handleStatusChange(item.id, value)}
                     className="flex flex-wrap gap-3"
                   >
-                    <div className="flex items-center space-x-2 p-2 rounded border hover:bg-accent/50 transition-colors">
+                    <div className={`flex items-center space-x-2 p-2 rounded border transition-colors ${status.situacao === "presente" ? "border-orange-500 bg-orange-50 dark:bg-orange-950/30" : "hover:bg-accent/50"}`}>
                       <RadioGroupItem value="presente" id={`${item.id}-presente`} />
                       <Label htmlFor={`${item.id}-presente`} className="font-normal cursor-pointer text-success">
                         Presente
                       </Label>
                     </div>
-                    <div className="flex items-center space-x-2 p-2 rounded border hover:bg-accent/50 transition-colors">
+                    <div className={`flex items-center space-x-2 p-2 rounded border transition-colors ${status.situacao === "incompleto" ? "border-orange-500 bg-orange-50 dark:bg-orange-950/30" : "hover:bg-accent/50"}`}>
                       <RadioGroupItem value="incompleto" id={`${item.id}-incompleto`} />
                       <Label htmlFor={`${item.id}-incompleto`} className="font-normal cursor-pointer text-warning">
                         Incompleto
                       </Label>
                     </div>
-                    <div className="flex items-center space-x-2 p-2 rounded border hover:bg-accent/50 transition-colors">
+                    <div className={`flex items-center space-x-2 p-2 rounded border transition-colors ${status.situacao === "ausente" ? "border-orange-500 bg-orange-50 dark:bg-orange-950/30" : "hover:bg-accent/50"}`}>
                       <RadioGroupItem value="ausente" id={`${item.id}-ausente`} />
                       <Label htmlFor={`${item.id}-ausente`} className="font-normal cursor-pointer text-destructive">
                         Ausente

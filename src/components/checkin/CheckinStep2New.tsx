@@ -29,7 +29,7 @@ export function CheckinStep2New({ data, onChange }: CheckinStep2NewProps) {
             onValueChange={(value) => onChange("nivel_combustivel", value)}
             className="grid grid-cols-2 gap-3"
           >
-            <div className="flex items-center space-x-3 p-4 rounded-lg border hover:bg-accent/50 transition-colors">
+            <div className={`flex items-center space-x-3 p-4 rounded-lg border transition-colors ${data.nivel_combustivel === "1/4" ? "border-orange-500 bg-orange-50 dark:bg-orange-950/30" : "hover:bg-accent/50"}`}>
               <RadioGroupItem value="1/4" id="combustivel-1" />
               <Label htmlFor="combustivel-1" className="font-normal cursor-pointer flex-1">
                 <div className="flex items-center gap-2">
@@ -40,7 +40,7 @@ export function CheckinStep2New({ data, onChange }: CheckinStep2NewProps) {
                 </div>
               </Label>
             </div>
-            <div className="flex items-center space-x-3 p-4 rounded-lg border hover:bg-accent/50 transition-colors">
+            <div className={`flex items-center space-x-3 p-4 rounded-lg border transition-colors ${data.nivel_combustivel === "2/4" ? "border-orange-500 bg-orange-50 dark:bg-orange-950/30" : "hover:bg-accent/50"}`}>
               <RadioGroupItem value="2/4" id="combustivel-2" />
               <Label htmlFor="combustivel-2" className="font-normal cursor-pointer flex-1">
                 <div className="flex items-center gap-2">
@@ -51,7 +51,7 @@ export function CheckinStep2New({ data, onChange }: CheckinStep2NewProps) {
                 </div>
               </Label>
             </div>
-            <div className="flex items-center space-x-3 p-4 rounded-lg border hover:bg-accent/50 transition-colors">
+            <div className={`flex items-center space-x-3 p-4 rounded-lg border transition-colors ${data.nivel_combustivel === "3/4" ? "border-orange-500 bg-orange-50 dark:bg-orange-950/30" : "hover:bg-accent/50"}`}>
               <RadioGroupItem value="3/4" id="combustivel-3" />
               <Label htmlFor="combustivel-3" className="font-normal cursor-pointer flex-1">
                 <div className="flex items-center gap-2">
@@ -62,7 +62,7 @@ export function CheckinStep2New({ data, onChange }: CheckinStep2NewProps) {
                 </div>
               </Label>
             </div>
-            <div className="flex items-center space-x-3 p-4 rounded-lg border hover:bg-accent/50 transition-colors">
+            <div className={`flex items-center space-x-3 p-4 rounded-lg border transition-colors ${data.nivel_combustivel === "4/4" ? "border-orange-500 bg-orange-50 dark:bg-orange-950/30" : "hover:bg-accent/50"}`}>
               <RadioGroupItem value="4/4" id="combustivel-4" />
               <Label htmlFor="combustivel-4" className="font-normal cursor-pointer flex-1">
                 <div className="flex items-center gap-2">
@@ -83,7 +83,7 @@ export function CheckinStep2New({ data, onChange }: CheckinStep2NewProps) {
             value={data.nivel_oleo} 
             onValueChange={(value) => onChange("nivel_oleo", value)}
           >
-            <div className="flex items-center space-x-3 p-4 rounded-lg border hover:bg-accent/50 transition-colors">
+            <div className={`flex items-center space-x-3 p-4 rounded-lg border transition-colors ${data.nivel_oleo === "alto" ? "border-orange-500 bg-orange-50 dark:bg-orange-950/30" : "hover:bg-accent/50"}`}>
               <RadioGroupItem value="alto" id="oleo-alto" />
               <Label htmlFor="oleo-alto" className="font-normal cursor-pointer flex-1">
                 <div className="flex items-center gap-2">
@@ -92,7 +92,7 @@ export function CheckinStep2New({ data, onChange }: CheckinStep2NewProps) {
                 </div>
               </Label>
             </div>
-            <div className="flex items-center space-x-3 p-4 rounded-lg border hover:bg-accent/50 transition-colors">
+            <div className={`flex items-center space-x-3 p-4 rounded-lg border transition-colors ${data.nivel_oleo === "medio" ? "border-orange-500 bg-orange-50 dark:bg-orange-950/30" : "hover:bg-accent/50"}`}>
               <RadioGroupItem value="medio" id="oleo-medio" />
               <Label htmlFor="oleo-medio" className="font-normal cursor-pointer flex-1">
                 <div className="flex items-center gap-2">
@@ -101,7 +101,7 @@ export function CheckinStep2New({ data, onChange }: CheckinStep2NewProps) {
                 </div>
               </Label>
             </div>
-            <div className="flex items-center space-x-3 p-4 rounded-lg border hover:bg-accent/50 transition-colors">
+            <div className={`flex items-center space-x-3 p-4 rounded-lg border transition-colors ${data.nivel_oleo === "baixo" ? "border-orange-500 bg-orange-50 dark:bg-orange-950/30" : "hover:bg-accent/50"}`}>
               <RadioGroupItem value="baixo" id="oleo-baixo" />
               <Label htmlFor="oleo-baixo" className="font-normal cursor-pointer flex-1">
                 <div className="flex items-center gap-2">
@@ -120,7 +120,7 @@ export function CheckinStep2New({ data, onChange }: CheckinStep2NewProps) {
             value={data.condicoes_mecanicas} 
             onValueChange={(value) => onChange("condicoes_mecanicas", value)}
           >
-            <div className="flex items-center space-x-3 p-4 rounded-lg border hover:bg-accent/50 transition-colors">
+            <div className={`flex items-center space-x-3 p-4 rounded-lg border transition-colors ${data.condicoes_mecanicas === "em_condicoes" ? "border-orange-500 bg-orange-50 dark:bg-orange-950/30" : "hover:bg-accent/50"}`}>
               <RadioGroupItem value="em_condicoes" id="mecanica-ok" />
               <Label htmlFor="mecanica-ok" className="font-normal cursor-pointer flex-1">
                 <div className="flex items-center gap-2">
@@ -129,7 +129,7 @@ export function CheckinStep2New({ data, onChange }: CheckinStep2NewProps) {
                 </div>
               </Label>
             </div>
-            <div className="flex items-center space-x-3 p-4 rounded-lg border hover:bg-accent/50 transition-colors">
+            <div className={`flex items-center space-x-3 p-4 rounded-lg border transition-colors ${data.condicoes_mecanicas === "sem_condicoes" ? "border-orange-500 bg-orange-50 dark:bg-orange-950/30" : "hover:bg-accent/50"}`}>
               <RadioGroupItem value="sem_condicoes" id="mecanica-nok" />
               <Label htmlFor="mecanica-nok" className="font-normal cursor-pointer flex-1">
                 <div className="flex items-center gap-2">
