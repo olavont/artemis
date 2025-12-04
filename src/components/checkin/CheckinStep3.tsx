@@ -82,7 +82,7 @@ export function CheckinStep3({ viaturaId, data, onChange }: CheckinStep3Props) {
     if (index >= 0) {
       newData[index].status = status;
       newData[index].nome_item = itemName;
-      if (status === "presente") {
+      if (status === "tem") {
         newData[index].observacao = "";
       }
     } else {
@@ -174,26 +174,26 @@ export function CheckinStep3({ viaturaId, data, onChange }: CheckinStep3Props) {
                     onValueChange={(value) => handleStatusChange(item.id, value, item.nome)}
                   >
                     <div className="flex items-center space-x-3 p-3 rounded-lg border hover:bg-accent/50 transition-colors">
-                      <RadioGroupItem value="presente" id={`${item.id}-presente`} />
-                      <Label htmlFor={`${item.id}-presente`} className="font-normal cursor-pointer flex-1">
+                      <RadioGroupItem value="tem" id={`${item.id}-tem`} />
+                      <Label htmlFor={`${item.id}-tem`} className="font-normal cursor-pointer flex-1">
                         Presente
                       </Label>
                     </div>
                     <div className="flex items-center space-x-3 p-3 rounded-lg border hover:bg-accent/50 transition-colors">
-                      <RadioGroupItem value="incompleto" id={`${item.id}-incompleto`} />
-                      <Label htmlFor={`${item.id}-incompleto`} className="font-normal cursor-pointer flex-1">
+                      <RadioGroupItem value="sem_condicoes" id={`${item.id}-sem_condicoes`} />
+                      <Label htmlFor={`${item.id}-sem_condicoes`} className="font-normal cursor-pointer flex-1">
                         Incompleto
                       </Label>
                     </div>
                     <div className="flex items-center space-x-3 p-3 rounded-lg border hover:bg-accent/50 transition-colors">
-                      <RadioGroupItem value="ausente" id={`${item.id}-ausente`} />
-                      <Label htmlFor={`${item.id}-ausente`} className="font-normal cursor-pointer flex-1">
+                      <RadioGroupItem value="nao_tem" id={`${item.id}-nao_tem`} />
+                      <Label htmlFor={`${item.id}-nao_tem`} className="font-normal cursor-pointer flex-1">
                         Ausente
                       </Label>
                     </div>
                   </RadioGroup>
 
-                  {(status.status === "incompleto" || status.status === "ausente") && (
+                  {(status.status === "sem_condicoes" || status.status === "nao_tem") && (
                     <div className="space-y-2">
                       <Label htmlFor={`${item.id}-obs`}>Observações *</Label>
                       <Textarea

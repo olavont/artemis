@@ -53,9 +53,10 @@ export default function ProtocoloDetalhes() {
           created_at,
           checklist_itens (
             id,
+            item_viatura_id,
             situacao,
             observacoes,
-            itens_viatura (nome, categoria)
+            itens_viatura (id, nome, categoria)
           )
         ),
         protocolos_devolucao (
@@ -79,9 +80,10 @@ export default function ProtocoloDetalhes() {
             created_at,
             checklist_itens (
               id,
+              item_viatura_id,
               situacao,
               observacoes,
-              itens_viatura (nome, categoria)
+              itens_viatura (id, nome, categoria)
             )
           )
         )
@@ -103,12 +105,29 @@ export default function ProtocoloDetalhes() {
   };
 
   const fetchFotos = async () => {
-    const { data } = await supabase
+    // Buscar fotos do check-in (protocolo_empenho_id)
+    const { data: fotosEmpenho } = await supabase
       .from("fotos_checklist")
       .select("*")
       .eq("protocolo_empenho_id", id);
     
-    setFotos(data || []);
+    // Buscar fotos do check-out (protocolo_devolucao_id) se existir devolução
+    const { data: protocoloDevolucao } = await supabase
+      .from("protocolos_devolucao")
+      .select("id")
+      .eq("protocolo_empenho_id", id)
+      .maybeSingle();
+    
+    let fotosDevolucao: any[] = [];
+    if (protocoloDevolucao) {
+      const { data } = await supabase
+        .from("fotos_checklist")
+        .select("*")
+        .eq("protocolo_devolucao_id", protocoloDevolucao.id);
+      fotosDevolucao = data || [];
+    }
+    
+    setFotos([...(fotosEmpenho || []), ...fotosDevolucao]);
   };
 
   const fetchItensViatura = async (viaturaId: string) => {
@@ -195,15 +214,12 @@ export default function ProtocoloDetalhes() {
 
   const getSituacaoItemLabel = (situacao: string) => {
     const labels: Record<string, string> = {
-      presente: "Presente",
-      incompleto: "Incompleto",
-      ausente: "Ausente",
+      tem: "Presente",
+      nao_tem: "Ausente",
+      sem_condicoes: "Incompleto",
       sim: "Sim",
       nao: "Não",
-      tem: "Tem",
-      nao_tem: "Não Tem",
       em_condicoes: "Em Condições",
-      sem_condicoes: "Sem Condições",
       bom: "Bom",
       mau: "Mau"
     };
@@ -211,10 +227,10 @@ export default function ProtocoloDetalhes() {
   };
 
   const getSituacaoItemColor = (situacao: string) => {
-    if (["presente", "sim", "tem", "em_condicoes", "bom"].includes(situacao)) {
+    if (["tem", "sim", "em_condicoes", "bom"].includes(situacao)) {
       return "text-green-600";
     }
-    if (["incompleto"].includes(situacao)) {
+    if (["sem_condicoes"].includes(situacao)) {
       return "text-orange-500";
     }
     return "text-red-500";
