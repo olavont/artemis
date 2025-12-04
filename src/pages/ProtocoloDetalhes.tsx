@@ -61,6 +61,7 @@ export default function ProtocoloDetalhes() {
         ),
         protocolos_devolucao (
           id,
+          nome_agente,
           data_hora_devolucao,
           local_devolucao,
           latitude_devolucao,
@@ -344,7 +345,7 @@ export default function ProtocoloDetalhes() {
                 <div className="flex items-center gap-2">
                   <User className="w-4 h-4 text-muted-foreground" />
                   <span className="text-sm text-muted-foreground">Agente:</span>
-                  <span className="font-medium">{protocolo.profiles?.nome || "-"}</span>
+                  <span className="font-medium">{protocolo.nome_agente || protocolo.profiles?.nome || "-"}</span>
                 </div>
               </div>
 
@@ -481,7 +482,7 @@ export default function ProtocoloDetalhes() {
                 <div className="flex items-center gap-2">
                   <User className="w-4 h-4 text-muted-foreground" />
                   <span className="text-sm text-muted-foreground">Agente:</span>
-                  <span className="font-medium">{devolucao?.profiles?.nome || "-"}</span>
+                  <span className="font-medium">{devolucao?.nome_agente || devolucao?.profiles?.nome || "-"}</span>
                 </div>
               </div>
 

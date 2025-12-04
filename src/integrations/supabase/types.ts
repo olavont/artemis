@@ -324,6 +324,7 @@ export type Database = {
           latitude_devolucao: number | null
           local_devolucao: string | null
           longitude_devolucao: number | null
+          nome_agente: string | null
           observacoes: string | null
           protocolo_empenho_id: string
           tempo_empenho_total_minutos: number | null
@@ -336,6 +337,7 @@ export type Database = {
           latitude_devolucao?: number | null
           local_devolucao?: string | null
           longitude_devolucao?: number | null
+          nome_agente?: string | null
           observacoes?: string | null
           protocolo_empenho_id: string
           tempo_empenho_total_minutos?: number | null
@@ -348,6 +350,7 @@ export type Database = {
           latitude_devolucao?: number | null
           local_devolucao?: string | null
           longitude_devolucao?: number | null
+          nome_agente?: string | null
           observacoes?: string | null
           protocolo_empenho_id?: string
           tempo_empenho_total_minutos?: number | null
@@ -378,6 +381,7 @@ export type Database = {
           latitude_empenho: number | null
           local_empenho: string | null
           longitude_empenho: number | null
+          nome_agente: string | null
           numero_protocolo: string
           observacoes: string | null
           status: Database["public"]["Enums"]["status_protocolo"]
@@ -392,6 +396,7 @@ export type Database = {
           latitude_empenho?: number | null
           local_empenho?: string | null
           longitude_empenho?: number | null
+          nome_agente?: string | null
           numero_protocolo: string
           observacoes?: string | null
           status?: Database["public"]["Enums"]["status_protocolo"]
@@ -406,6 +411,7 @@ export type Database = {
           latitude_empenho?: number | null
           local_empenho?: string | null
           longitude_empenho?: number | null
+          nome_agente?: string | null
           numero_protocolo?: string
           observacoes?: string | null
           status?: Database["public"]["Enums"]["status_protocolo"]
