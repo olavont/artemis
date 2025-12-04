@@ -35,12 +35,18 @@ function mapKeycloakRoleToAppRole(idToken: IDTokenPayload, clientId: string): 'a
   const realmRoles = idToken.realm_access?.roles || []
   const clientRoles = idToken.resource_access?.[clientId]?.roles || []
 
+  // Normalize all roles/groups to lowercase for comparison
   const allRoles = [...groups, ...realmRoles, ...clientRoles].map(r => r.toLowerCase())
 
   console.log('Keycloak roles/groups:', { groups, realmRoles, clientRoles, allRoles })
 
-  // Check for admin role - maps to gestor in the app
-  if (allRoles.some(r => r.includes('admin') || r.includes('administrador') || r.includes('gestor'))) {
+  // Check for Administrador or Supervisor groups - maps to gestor in the app
+  if (allRoles.some(r => 
+    r.includes('administrador') || 
+    r.includes('supervisor') || 
+    r.includes('admin') || 
+    r.includes('gestor')
+  )) {
     return 'gestor'
   }
 
