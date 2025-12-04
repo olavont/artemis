@@ -367,7 +367,7 @@ export default function ProtocoloDetalhes() {
               </div>
 
               {/* Itens Verificados */}
-              {(checklistEmpenho?.checklist_itens?.length > 0 || itensViatura.length > 0) && (
+              {itensViatura.length > 0 && (
                 <>
                   <Separator />
                   <div className="space-y-2">
@@ -376,23 +376,23 @@ export default function ProtocoloDetalhes() {
                       Itens Verificados
                     </h4>
                     <div className="space-y-1">
-                      {checklistEmpenho?.checklist_itens?.length > 0 ? (
-                        checklistEmpenho.checklist_itens.map((item: any) => (
-                          <div key={item.id} className="flex items-center justify-between text-sm p-1 border-b">
-                            <span>{item.itens_viatura?.nome}</span>
-                            <span className={`font-medium ${getSituacaoItemColor(item.situacao)}`}>
-                              {getSituacaoItemLabel(item.situacao)}
-                            </span>
-                          </div>
-                        ))
-                      ) : (
-                        itensViatura.map((config: any) => (
+                      {itensViatura.map((config: any) => {
+                        const validacao = checklistEmpenho?.checklist_itens?.find(
+                          (item: any) => item.item_viatura_id === config.item_viatura_id || item.itens_viatura?.id === config.itens_viatura?.id
+                        );
+                        return (
                           <div key={config.id} className="flex items-center justify-between text-sm p-1 border-b">
                             <span>{config.itens_viatura?.nome}</span>
-                            <span className="text-muted-foreground">-</span>
+                            {validacao ? (
+                              <span className={`font-medium ${getSituacaoItemColor(validacao.situacao)}`}>
+                                {getSituacaoItemLabel(validacao.situacao)}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">Não verificado</span>
+                            )}
                           </div>
-                        ))
-                      )}
+                        );
+                      })}
                     </div>
                   </div>
                 </>
@@ -514,7 +514,7 @@ export default function ProtocoloDetalhes() {
               </div>
 
               {/* Itens Verificados */}
-              {(checklistDevolucao?.checklist_itens?.length > 0 || itensViatura.length > 0) && (
+              {itensViatura.length > 0 && (
                 <>
                   <Separator />
                   <div className="space-y-2">
@@ -523,23 +523,23 @@ export default function ProtocoloDetalhes() {
                       Itens Verificados
                     </h4>
                     <div className="space-y-1">
-                      {checklistDevolucao?.checklist_itens?.length > 0 ? (
-                        checklistDevolucao.checklist_itens.map((item: any) => (
-                          <div key={item.id} className="flex items-center justify-between text-sm p-1 border-b">
-                            <span>{item.itens_viatura?.nome}</span>
-                            <span className={`font-medium ${getSituacaoItemColor(item.situacao)}`}>
-                              {getSituacaoItemLabel(item.situacao)}
-                            </span>
-                          </div>
-                        ))
-                      ) : (
-                        itensViatura.map((config: any) => (
+                      {itensViatura.map((config: any) => {
+                        const validacao = checklistDevolucao?.checklist_itens?.find(
+                          (item: any) => item.item_viatura_id === config.item_viatura_id || item.itens_viatura?.id === config.itens_viatura?.id
+                        );
+                        return (
                           <div key={config.id} className="flex items-center justify-between text-sm p-1 border-b">
                             <span>{config.itens_viatura?.nome}</span>
-                            <span className="text-muted-foreground">-</span>
+                            {validacao ? (
+                              <span className={`font-medium ${getSituacaoItemColor(validacao.situacao)}`}>
+                                {getSituacaoItemLabel(validacao.situacao)}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">Não verificado</span>
+                            )}
                           </div>
-                        ))
-                      )}
+                        );
+                      })}
                     </div>
                   </div>
                 </>
