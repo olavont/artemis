@@ -36,6 +36,7 @@ export default function Viaturas() {
   const [isGestor, setIsGestor] = useState(false);
   const [availableItems, setAvailableItems] = useState<ItemViatura[]>([]);
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
+  const [viewViaturaItems, setViewViaturaItems] = useState<SelectedItem[]>([]);
   const { toast } = useToast();
 
   const [formData, setFormData] = useState({
@@ -379,21 +380,23 @@ export default function Viaturas() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="marca">Marca</Label>
+                    <Label htmlFor="marca">Marca *</Label>
                     <Input
                       id="marca"
                       value={formData.marca}
                       onChange={(e) => setFormData({ ...formData, marca: e.target.value })}
                       placeholder="Ex: Toyota"
+                      required
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="modelo">Modelo</Label>
+                    <Label htmlFor="modelo">Modelo *</Label>
                     <Input
                       id="modelo"
                       value={formData.modelo}
                       onChange={(e) => setFormData({ ...formData, modelo: e.target.value })}
                       placeholder="Ex: Hilux"
+                      required
                     />
                   </div>
                   <div className="space-y-2">
@@ -407,13 +410,14 @@ export default function Viaturas() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="km_inicial">Quilometragem Inicial</Label>
+                    <Label htmlFor="km_inicial">Quilometragem Atual *</Label>
                     <Input
                       id="km_inicial"
                       type="number"
                       value={formData.km_inicial}
                       onChange={(e) => setFormData({ ...formData, km_inicial: e.target.value })}
                       placeholder="0"
+                      required
                     />
                   </div>
                   <div className="space-y-2">
@@ -525,7 +529,21 @@ export default function Viaturas() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => { setSelectedViatura(viatura); setViewDialogOpen(true); }}
+                  onClick={async () => { 
+                    setSelectedViatura(viatura); 
+                    const { data } = await supabase
+                      .from("viatura_itens_config")
+                      .select("item_viatura_id, quantidade_padrao, itens_viatura(nome)")
+                      .eq("viatura_id", viatura.id);
+                    if (data) {
+                      setViewViaturaItems(data.map((item: any) => ({
+                        item_viatura_id: item.item_viatura_id,
+                        quantidade: item.quantidade_padrao || 1,
+                        nome: item.itens_viatura?.nome || "",
+                      })));
+                    }
+                    setViewDialogOpen(true); 
+                  }}
                 >
                   <Eye className="w-4 h-4 mr-1" />
                   Ver
@@ -560,12 +578,12 @@ export default function Viaturas() {
 
       {/* View Dialog */}
       <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Detalhes da Viatura</DialogTitle>
           </DialogHeader>
           {selectedViatura && (
-            <div className="space-y-4">
+            <div className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-muted-foreground">Prefixo</p>
@@ -584,14 +602,65 @@ export default function Viaturas() {
                   <p className="font-medium">{selectedViatura.modelo || "-"}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Ano</p>
+                  <p className="text-sm text-muted-foreground">Ano de Fabricação</p>
                   <p className="font-medium">{selectedViatura.ano_fabricacao || "-"}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Status</p>
+                  <p className="text-sm text-muted-foreground">Quilometragem Atual</p>
+                  <p className="font-medium">{selectedViatura.km_inicial?.toLocaleString('pt-BR') || "0"} km</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Status Operacional</p>
                   {getStatusBadge(selectedViatura.status_operacional)}
                 </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Situação Licenciamento</p>
+                  <p className="font-medium">{selectedViatura.situacao_licenciamento || "-"}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Chassi</p>
+                  <p className="font-medium">{selectedViatura.chassi || "-"}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Renavam</p>
+                  <p className="font-medium">{selectedViatura.renavam || "-"}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Espécie</p>
+                  <p className="font-medium">{selectedViatura.especie || "-"}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Categoria</p>
+                  <p className="font-medium">{selectedViatura.categoria || "-"}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Tipo</p>
+                  <p className="font-medium">{selectedViatura.tipo || "-"}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Criado em</p>
+                  <p className="font-medium">{new Date(selectedViatura.created_at).toLocaleDateString('pt-BR')}</p>
+                </div>
               </div>
+              {selectedViatura.observacoes && (
+                <div>
+                  <p className="text-sm text-muted-foreground">Observações</p>
+                  <p className="font-medium">{selectedViatura.observacoes}</p>
+                </div>
+              )}
+              {viewViaturaItems.length > 0 && (
+                <div className="border-t pt-4">
+                  <p className="text-sm text-muted-foreground mb-2">Itens Cadastrados</p>
+                  <div className="space-y-2">
+                    {viewViaturaItems.map((item) => (
+                      <div key={item.item_viatura_id} className="flex justify-between items-center p-2 bg-muted rounded-md">
+                        <span className="text-sm">{item.nome}</span>
+                        <span className="text-sm font-medium">Qtd: {item.quantidade}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </DialogContent>
