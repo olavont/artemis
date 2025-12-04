@@ -495,7 +495,14 @@ export default function ProtocoloDetalhes() {
                 </div>
 
                 {/* KM Rodados */}
-                {checklistEmpenho && checklistDevolucao}
+                {checklistEmpenho?.km_atual && checklistDevolucao?.km_atual && (
+                  <div className="p-2 bg-muted rounded col-span-2">
+                    <p className="text-xs text-muted-foreground">KM Rodados</p>
+                    <p className="font-semibold">
+                      {(checklistDevolucao.km_atual - checklistEmpenho.km_atual).toLocaleString('pt-BR')} km
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Itens Verificados */}
