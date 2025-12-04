@@ -37,12 +37,8 @@ export default function Layout({ children }: LayoutProps) {
       if (keycloakUser) {
         const userData = JSON.parse(keycloakUser);
         setUser({ id: userData.id, email: userData.email } as any);
-        // Use Keycloak user data directly (RLS policies don't work for Keycloak users)
-        setProfile({
-          id: userData.id,
-          nome: userData.name || userData.email,
-          perfil: userData.role || 'agente',
-        });
+        // Fetch profile from database via proxy-data
+        fetchProfile(userData.id);
         setLoading(false);
         return;
       }
@@ -81,14 +77,17 @@ export default function Layout({ children }: LayoutProps) {
   }, []);
 
   const fetchProfile = async (userId: string) => {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", userId)
-      .single();
+    try {
+      // Use proxy-data to fetch profile (bypasses RLS for Keycloak users)
+      const { data: result, error } = await supabase.functions.invoke('proxy-data', {
+        body: { action: 'get_my_profile', userId }
+      });
 
-    if (!error && data) {
-      setProfile(data);
+      if (!error && result?.success && result?.data) {
+        setProfile(result.data);
+      }
+    } catch (err) {
+      console.error('Error fetching profile:', err);
     }
   };
 

@@ -46,6 +46,16 @@ Deno.serve(async (req) => {
     let error: any = null
 
     switch (action) {
+      case 'get_my_profile':
+        // Return the current user's profile
+        data = {
+          id: profile.id,
+          nome: profile.nome,
+          perfil: profile.perfil,
+          ativo: profile.ativo
+        }
+        break
+
       case 'get_viaturas':
         if (isGestorOrAdmin) {
           const result = await supabase
