@@ -174,7 +174,7 @@ export default function CheckoutForm() {
       }
       
       const missingObservation = step3Data.some(
-        item => (item.situacao === "incompleto" || item.situacao === "ausente") && !item.observacao.trim()
+        item => (item.situacao === "sem_condicoes" || item.situacao === "nao_tem") && !item.observacao.trim()
       );
       if (missingObservation) {
         toast({ variant: "destructive", title: "Erro", description: "Observações são obrigatórias para itens incompletos ou ausentes" });
@@ -248,6 +248,7 @@ export default function CheckoutForm() {
         .insert({
           protocolo_empenho_id: id,
           agente_responsavel_id: userId,
+          nome_agente: step1Data.agente_nome,
           observacoes: `${step1Data.motivo}\n\n${observacaoGeral}`.trim(),
           local_devolucao: step1Data.local,
           latitude_devolucao: step1Data.latitude,
