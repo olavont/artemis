@@ -17,6 +17,7 @@ export default function ProtocoloDetalhes() {
   const { toast } = useToast();
   const [protocolo, setProtocolo] = useState<any>(null);
   const [fotos, setFotos] = useState<any[]>([]);
+  const [itensViatura, setItensViatura] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -26,6 +27,12 @@ export default function ProtocoloDetalhes() {
       fetchFotos();
     }
   }, [id]);
+
+  useEffect(() => {
+    if (protocolo?.viatura_id) {
+      fetchItensViatura(protocolo.viatura_id);
+    }
+  }, [protocolo?.viatura_id]);
 
   const fetchProtocolo = async () => {
     const { data, error } = await supabase
@@ -102,6 +109,18 @@ export default function ProtocoloDetalhes() {
       .eq("protocolo_empenho_id", id);
     
     setFotos(data || []);
+  };
+
+  const fetchItensViatura = async (viaturaId: string) => {
+    const { data } = await supabase
+      .from("viatura_itens_config")
+      .select(`
+        *,
+        itens_viatura (id, nome, categoria, tipo)
+      `)
+      .eq("viatura_id", viaturaId);
+    
+    setItensViatura(data || []);
   };
 
   const handlePrintPDF = async () => {
@@ -348,7 +367,7 @@ export default function ProtocoloDetalhes() {
               </div>
 
               {/* Itens Verificados */}
-              {checklistEmpenho?.checklist_itens?.length > 0 && (
+              {(checklistEmpenho?.checklist_itens?.length > 0 || itensViatura.length > 0) && (
                 <>
                   <Separator />
                   <div className="space-y-2">
@@ -357,14 +376,23 @@ export default function ProtocoloDetalhes() {
                       Itens Verificados
                     </h4>
                     <div className="space-y-1">
-                      {checklistEmpenho.checklist_itens.map((item: any) => (
-                        <div key={item.id} className="flex items-center justify-between text-sm p-1 border-b">
-                          <span>{item.itens_viatura?.nome}</span>
-                          <span className={`font-medium ${getSituacaoItemColor(item.situacao)}`}>
-                            {getSituacaoItemLabel(item.situacao)}
-                          </span>
-                        </div>
-                      ))}
+                      {checklistEmpenho?.checklist_itens?.length > 0 ? (
+                        checklistEmpenho.checklist_itens.map((item: any) => (
+                          <div key={item.id} className="flex items-center justify-between text-sm p-1 border-b">
+                            <span>{item.itens_viatura?.nome}</span>
+                            <span className={`font-medium ${getSituacaoItemColor(item.situacao)}`}>
+                              {getSituacaoItemLabel(item.situacao)}
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        itensViatura.map((config: any) => (
+                          <div key={config.id} className="flex items-center justify-between text-sm p-1 border-b">
+                            <span>{config.itens_viatura?.nome}</span>
+                            <span className="text-muted-foreground">-</span>
+                          </div>
+                        ))
+                      )}
                     </div>
                   </div>
                 </>
@@ -486,7 +514,7 @@ export default function ProtocoloDetalhes() {
               </div>
 
               {/* Itens Verificados */}
-              {checklistDevolucao?.checklist_itens?.length > 0 && (
+              {(checklistDevolucao?.checklist_itens?.length > 0 || itensViatura.length > 0) && (
                 <>
                   <Separator />
                   <div className="space-y-2">
@@ -495,14 +523,23 @@ export default function ProtocoloDetalhes() {
                       Itens Verificados
                     </h4>
                     <div className="space-y-1">
-                      {checklistDevolucao.checklist_itens.map((item: any) => (
-                        <div key={item.id} className="flex items-center justify-between text-sm p-1 border-b">
-                          <span>{item.itens_viatura?.nome}</span>
-                          <span className={`font-medium ${getSituacaoItemColor(item.situacao)}`}>
-                            {getSituacaoItemLabel(item.situacao)}
-                          </span>
-                        </div>
-                      ))}
+                      {checklistDevolucao?.checklist_itens?.length > 0 ? (
+                        checklistDevolucao.checklist_itens.map((item: any) => (
+                          <div key={item.id} className="flex items-center justify-between text-sm p-1 border-b">
+                            <span>{item.itens_viatura?.nome}</span>
+                            <span className={`font-medium ${getSituacaoItemColor(item.situacao)}`}>
+                              {getSituacaoItemLabel(item.situacao)}
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        itensViatura.map((config: any) => (
+                          <div key={config.id} className="flex items-center justify-between text-sm p-1 border-b">
+                            <span>{config.itens_viatura?.nome}</span>
+                            <span className="text-muted-foreground">-</span>
+                          </div>
+                        ))
+                      )}
                     </div>
                   </div>
                 </>
