@@ -37,8 +37,12 @@ export default function Layout({ children }: LayoutProps) {
       if (keycloakUser) {
         const userData = JSON.parse(keycloakUser);
         setUser({ id: userData.id, email: userData.email } as any);
-        // Fetch full profile from database for Keycloak users
-        fetchProfile(userData.id);
+        // Use Keycloak user data directly (RLS policies don't work for Keycloak users)
+        setProfile({
+          id: userData.id,
+          nome: userData.name || userData.email,
+          perfil: userData.role || 'agente',
+        });
         setLoading(false);
         return;
       }
