@@ -37,6 +37,7 @@ export default function ProtocoloDetalhes() {
     }
   }, [protocolo?.viatura_id]);
   const fetchProtocolo = async () => {
+    console.log("Fetching protocolo with id:", id);
     const {
       data,
       error
@@ -92,11 +93,23 @@ export default function ProtocoloDetalhes() {
           )
         )
       `).eq("id", id).maybeSingle();
+    
+    console.log("Protocolo fetch result:", { data, error });
+    
     if (error) {
+      console.error("Erro ao carregar protocolo:", error);
       toast({
         variant: "destructive",
         title: "Erro ao carregar protocolo",
         description: error.message
+      });
+      navigate("/protocolos");
+    } else if (!data) {
+      console.warn("Protocolo não encontrado para o id:", id);
+      toast({
+        variant: "destructive",
+        title: "Protocolo não encontrado",
+        description: "O protocolo solicitado não foi encontrado ou você não tem permissão para visualizá-lo."
       });
       navigate("/protocolos");
     } else {
