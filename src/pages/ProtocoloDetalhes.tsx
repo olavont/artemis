@@ -43,6 +43,19 @@ export default function ProtocoloDetalhes() {
       const { data, error } = await proxyFetch<any>("get_protocolo", { id });
 
       if (error) {
+        const msg = error.message || "";
+
+        if (msg.includes("Protocolo não encontrado") || msg.includes("Unauthorized")) {
+          toast({
+            variant: "destructive",
+            title: "Protocolo não encontrado",
+            description: "O protocolo solicitado não foi encontrado ou você não tem permissão para visualizá-lo.",
+          });
+          navigate("/protocolos");
+          setLoading(false);
+          return;
+        }
+
         toast({
           variant: "destructive",
           title: "Erro ao carregar protocolo",

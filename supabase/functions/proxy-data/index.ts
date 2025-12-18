@@ -122,7 +122,11 @@ Deno.serve(async (req) => {
         }
         break
 
-      case 'get_protocolo':
+      case 'get_protocolo': {
+        if (!params?.id) {
+          throw new Error('Missing params.id')
+        }
+
         const protocoloResult = await supabase
           .from('protocolos_empenho')
           .select(`
@@ -178,15 +182,26 @@ Deno.serve(async (req) => {
             )
           `)
           .eq('id', params.id)
-          .single()
+          .maybeSingle()
+
+        if (protocoloResult.error) {
+          throw protocoloResult.error
+        }
+
+        if (!protocoloResult.data) {
+          throw new Error('Protocolo não encontrado')
+        }
 
         // Check access
-        if (!isGestorOrAdmin && protocoloResult.data?.agente_responsavel_id !== userId) {
+        if (!isGestorOrAdmin && protocoloResult.data.agente_responsavel_id !== userId) {
           throw new Error('Unauthorized')
         }
+
         data = protocoloResult.data
-        error = protocoloResult.error
+        error = null
         break
+      }
+
 
       case 'get_viatura_itens_config':
         const configResult = await supabase
