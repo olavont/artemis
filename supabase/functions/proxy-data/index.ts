@@ -208,12 +208,60 @@ Deno.serve(async (req) => {
           .from('viatura_itens_config')
           .select(`
             *,
-            item:itens_viatura(*)
+            item:itens_viatura(*),
+            itens_viatura (id, nome, categoria, tipo)
           `)
           .eq('viatura_id', params.viatura_id)
         data = configResult.data
         error = configResult.error
         break
+
+      case 'get_fotos_protocolo': {
+        if (!params?.protocolo_empenho_id) {
+          throw new Error('Missing params.protocolo_empenho_id')
+        }
+
+        // Verify access to this protocol
+        const protocoloCheck = await supabase
+          .from('protocolos_empenho')
+          .select('id, agente_responsavel_id')
+          .eq('id', params.protocolo_empenho_id)
+          .single()
+
+        if (protocoloCheck.error || !protocoloCheck.data) {
+          throw new Error('Protocolo não encontrado')
+        }
+
+        if (!isGestorOrAdmin && protocoloCheck.data.agente_responsavel_id !== userId) {
+          throw new Error('Unauthorized')
+        }
+
+        // Get fotos from check-in
+        const fotosEmpenhoResult = await supabase
+          .from('fotos_checklist')
+          .select('*')
+          .eq('protocolo_empenho_id', params.protocolo_empenho_id)
+
+        // Check for return protocol
+        const devolucaoResult = await supabase
+          .from('protocolos_devolucao')
+          .select('id')
+          .eq('protocolo_empenho_id', params.protocolo_empenho_id)
+          .maybeSingle()
+
+        let fotosDevolucao: any[] = []
+        if (devolucaoResult.data) {
+          const fotosDevolucaoResult = await supabase
+            .from('fotos_checklist')
+            .select('*')
+            .eq('protocolo_devolucao_id', devolucaoResult.data.id)
+          fotosDevolucao = fotosDevolucaoResult.data || []
+        }
+
+        data = [...(fotosEmpenhoResult.data || []), ...fotosDevolucao]
+        error = fotosEmpenhoResult.error
+        break
+      }
 
       case 'get_profiles':
         if (isGestorOrAdmin) {
