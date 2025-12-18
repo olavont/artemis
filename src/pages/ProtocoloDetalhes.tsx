@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { isKeycloakUser, proxyFetch } from "@/hooks/useProxyData";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -37,11 +38,40 @@ export default function ProtocoloDetalhes() {
     }
   }, [protocolo?.viatura_id]);
   const fetchProtocolo = async () => {
-    console.log("Fetching protocolo with id:", id);
-    const {
-      data,
-      error
-    } = await supabase.from("protocolos_empenho").select(`
+    // Keycloak users do not have a Supabase session JWT, so we must use the proxy edge function.
+    if (isKeycloakUser() && id) {
+      const { data, error } = await proxyFetch<any>("get_protocolo", { id });
+
+      if (error) {
+        toast({
+          variant: "destructive",
+          title: "Erro ao carregar protocolo",
+          description: error.message,
+        });
+        navigate("/protocolos");
+        setLoading(false);
+        return;
+      }
+
+      if (!data) {
+        toast({
+          variant: "destructive",
+          title: "Protocolo não encontrado",
+          description: "O protocolo solicitado não foi encontrado ou você não tem permissão para visualizá-lo.",
+        });
+        navigate("/protocolos");
+        setLoading(false);
+        return;
+      }
+
+      setProtocolo(data);
+      setLoading(false);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("protocolos_empenho")
+      .select(`
         *,
         viaturas (prefixo, placa, marca, modelo, km_inicial, km_atual),
         profiles!protocolos_empenho_agente_responsavel_id_fkey (nome, matricula),
@@ -92,29 +122,28 @@ export default function ProtocoloDetalhes() {
             )
           )
         )
-      `).eq("id", id).maybeSingle();
-    
-    console.log("Protocolo fetch result:", { data, error });
-    
+      `)
+      .eq("id", id)
+      .maybeSingle();
+
     if (error) {
-      console.error("Erro ao carregar protocolo:", error);
       toast({
         variant: "destructive",
         title: "Erro ao carregar protocolo",
-        description: error.message
+        description: error.message,
       });
       navigate("/protocolos");
     } else if (!data) {
-      console.warn("Protocolo não encontrado para o id:", id);
       toast({
         variant: "destructive",
         title: "Protocolo não encontrado",
-        description: "O protocolo solicitado não foi encontrado ou você não tem permissão para visualizá-lo."
+        description: "O protocolo solicitado não foi encontrado ou você não tem permissão para visualizá-lo.",
       });
       navigate("/protocolos");
     } else {
       setProtocolo(data);
     }
+
     setLoading(false);
   };
   const fetchFotos = async () => {

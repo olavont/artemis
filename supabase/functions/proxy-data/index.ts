@@ -127,10 +127,55 @@ Deno.serve(async (req) => {
           .from('protocolos_empenho')
           .select(`
             *,
-            viatura:viaturas(*),
-            agente:profiles!protocolos_empenho_agente_responsavel_id_fkey(nome, matricula),
-            devolucao:protocolos_devolucao(*),
-            checklist_empenho:checklists_veiculo!checklists_veiculo_protocolo_empenho_id_fkey(*)
+            viaturas (prefixo, placa, marca, modelo, km_inicial, km_atual),
+            profiles!protocolos_empenho_agente_responsavel_id_fkey (nome, matricula),
+            checklists_veiculo (
+              id,
+              tipo_checklist,
+              km_atual,
+              nivel_combustivel,
+              nivel_oleo,
+              condicoes_mecanicas,
+              estado_geral,
+              observacoes,
+              created_at,
+              checklist_itens (
+                id,
+                item_viatura_id,
+                situacao,
+                observacoes,
+                itens_viatura (id, nome, categoria)
+              )
+            ),
+            protocolos_devolucao (
+              id,
+              nome_agente,
+              data_hora_devolucao,
+              local_devolucao,
+              latitude_devolucao,
+              longitude_devolucao,
+              observacoes,
+              agente_responsavel_id,
+              profiles:agente_responsavel_id (nome, matricula),
+              checklists_veiculo (
+                id,
+                tipo_checklist,
+                km_atual,
+                nivel_combustivel,
+                nivel_oleo,
+                condicoes_mecanicas,
+                estado_geral,
+                observacoes,
+                created_at,
+                checklist_itens (
+                  id,
+                  item_viatura_id,
+                  situacao,
+                  observacoes,
+                  itens_viatura (id, nome, categoria)
+                )
+              )
+            )
           `)
           .eq('id', params.id)
           .single()
