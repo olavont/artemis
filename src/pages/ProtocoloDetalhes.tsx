@@ -160,6 +160,14 @@ export default function ProtocoloDetalhes() {
     setLoading(false);
   };
   const fetchFotos = async () => {
+    if (isKeycloakUser() && id) {
+      const { data, error } = await proxyFetch<any[]>("get_fotos_protocolo", { protocolo_empenho_id: id });
+      if (!error && data) {
+        setFotos(data);
+      }
+      return;
+    }
+
     // Buscar fotos do check-in (protocolo_empenho_id)
     const {
       data: fotosEmpenho
@@ -178,7 +186,16 @@ export default function ProtocoloDetalhes() {
     }
     setFotos([...(fotosEmpenho || []), ...fotosDevolucao]);
   };
+
   const fetchItensViatura = async (viaturaId: string) => {
+    if (isKeycloakUser()) {
+      const { data, error } = await proxyFetch<any[]>("get_viatura_itens_config", { viatura_id: viaturaId });
+      if (!error && data) {
+        setItensViatura(data);
+      }
+      return;
+    }
+
     const {
       data
     } = await supabase.from("viatura_itens_config").select(`
