@@ -91,7 +91,7 @@ export default function ProtocoloDetalhes() {
             )
           )
         )
-      `).eq("id", id).single();
+      `).eq("id", id).maybeSingle();
     if (error) {
       toast({
         variant: "destructive",
