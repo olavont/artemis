@@ -101,6 +101,8 @@ export default function Layout({ children }: LayoutProps) {
   const handleLogout = async () => {
     // Clear Keycloak session if exists
     const keycloakUser = localStorage.getItem("keycloak_user");
+    const keycloakTokens = localStorage.getItem("keycloak_tokens");
+    
     if (keycloakUser) {
       localStorage.removeItem("keycloak_user");
       localStorage.removeItem("keycloak_tokens");
@@ -110,12 +112,26 @@ export default function Layout({ children }: LayoutProps) {
         description: "Até logo!",
       });
 
-      // Optional: redirect to Keycloak logout
+      // Redirect to Keycloak logout with id_token_hint for proper session end
       const keycloakBaseUrl = "https://account.des.aureaphigital.com:8443";
       const realm = "des-aureaphigital";
       const postLogoutRedirect = `${window.location.origin}/auth`;
 
-      window.location.href = `${keycloakBaseUrl}/realms/${realm}/protocol/openid-connect/logout?post_logout_redirect_uri=${encodeURIComponent(postLogoutRedirect)}`;
+      let logoutUrl = `${keycloakBaseUrl}/realms/${realm}/protocol/openid-connect/logout?post_logout_redirect_uri=${encodeURIComponent(postLogoutRedirect)}&client_id=portal_helios_des_authorization_code`;
+      
+      // Add id_token_hint if available for proper logout
+      if (keycloakTokens) {
+        try {
+          const tokens = JSON.parse(keycloakTokens);
+          if (tokens.id_token) {
+            logoutUrl += `&id_token_hint=${tokens.id_token}`;
+          }
+        } catch (e) {
+          // Ignore parsing errors
+        }
+      }
+
+      window.location.href = logoutUrl;
       return;
     }
 
