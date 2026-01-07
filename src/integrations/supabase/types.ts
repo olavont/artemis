@@ -340,6 +340,7 @@ export type Database = {
           matricula: string | null
           nome: string
           perfil: Database["public"]["Enums"]["perfil_usuario"]
+          tenant: string | null
           updated_at: string
         }
         Insert: {
@@ -349,6 +350,7 @@ export type Database = {
           matricula?: string | null
           nome: string
           perfil?: Database["public"]["Enums"]["perfil_usuario"]
+          tenant?: string | null
           updated_at?: string
         }
         Update: {
@@ -358,6 +360,7 @@ export type Database = {
           matricula?: string | null
           nome?: string
           perfil?: Database["public"]["Enums"]["perfil_usuario"]
+          tenant?: string | null
           updated_at?: string
         }
         Relationships: []
