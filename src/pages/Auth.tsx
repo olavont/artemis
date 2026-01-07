@@ -1,4 +1,6 @@
 import { useEffect } from "react";
+import { Browser } from "@capacitor/browser";
+import { Capacitor } from "@capacitor/core";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -30,7 +32,9 @@ export default function Auth() {
     const keycloakBaseUrl = "https://account.des.aureaphigital.com:8443";
     const realm = "des-aureaphigital";
     const clientId = "portal_helios_des_authorization_code";
-    const redirectUri = `${window.location.origin}/auth/callback`;
+    const redirectUri = Capacitor.isNativePlatform()
+      ? "artemis://auth/callback"
+      : `${window.location.origin}/auth/callback`;
 
     const authUrl = new URL(`${keycloakBaseUrl}/realms/${realm}/protocol/openid-connect/auth`);
     authUrl.searchParams.append("response_type", "code");
@@ -38,7 +42,11 @@ export default function Auth() {
     authUrl.searchParams.append("redirect_uri", redirectUri);
     authUrl.searchParams.append("scope", "openid profile email");
 
-    window.location.href = authUrl.toString();
+    if (Capacitor.isNativePlatform()) {
+      Browser.open({ url: authUrl.toString() });
+    } else {
+      window.location.href = authUrl.toString();
+    }
   };
 
   return (

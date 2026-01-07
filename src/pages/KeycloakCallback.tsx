@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Capacitor } from "@capacitor/core";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -26,7 +27,9 @@ export default function KeycloakCallback() {
 
         console.log("Processing Keycloak callback with code:", code);
 
-        const redirectUri = `${window.location.origin}/auth/callback`;
+        const redirectUri = Capacitor.isNativePlatform()
+          ? "artemis://auth/callback"
+          : `${window.location.origin}/auth/callback`;
 
         // Call edge function to exchange code for tokens
         const { data, error: functionError } = await supabase.functions.invoke(
