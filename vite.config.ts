@@ -7,7 +7,19 @@ import { componentTagger } from "lovable-tagger";
 export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
-    port: 8080,
+    port: 3000,
+    proxy: {
+      '/realms': {
+        target: 'https://account.des.aureaphigital.com:8443',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/uranus': {
+        target: 'https://gateway.des.aureaphygital.com.br',
+        changeOrigin: true,
+        secure: false,
+      }
+    },
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {

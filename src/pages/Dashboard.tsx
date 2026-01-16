@@ -154,7 +154,7 @@ export default function Dashboard() {
       checklistsEmpenho.forEach((empenho: any) => {
         const devolucao = checklistsDevolucao.find(
           (d: any) => d.protocolo_devolucao_id &&
-          d.protocolos_devolucao?.protocolo_empenho_id === empenho.protocolo_empenho_id
+            d.protocolos_devolucao?.protocolo_empenho_id === empenho.protocolo_empenho_id
         );
 
         if (devolucao && devolucao.km_atual > empenho.km_atual) {
@@ -303,7 +303,7 @@ export default function Dashboard() {
                   color: "hsl(var(--secondary))",
                 },
               }}
-              className="h-[300px]"
+              className="h-[300px] w-full"
             >
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={protocolosPorDia}>

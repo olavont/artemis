@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, ArrowRight, CheckCircle, Loader2 } from "lucide-react";
-import { getCurrentUserId } from "@/hooks/useProxyData";
+import { getCurrentUserId, isKeycloakUser, proxyFetch } from "@/hooks/useProxyData";
 import { Progress } from "@/components/ui/progress";
 import { CheckinStep1New } from "@/components/checkin/CheckinStep1New";
 import { CheckinStep2New } from "@/components/checkin/CheckinStep2New";
@@ -28,7 +28,7 @@ export default function CheckinForm() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
-  
+
   const [viatura, setViatura] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -72,38 +72,62 @@ export default function CheckinForm() {
   }, [id]);
 
   const fetchViatura = async () => {
-    const { data, error } = await supabase
-      .from("viaturas")
-      .select("*")
-      .eq("id", id)
-      .single();
-
-    if (error) {
-      toast({ variant: "destructive", title: "Erro", description: error.message });
-      navigate("/checkin");
+    if (isKeycloakUser()) {
+      const { data, error } = await proxyFetch<any>("get_viatura", { id });
+      if (error) {
+        toast({ variant: "destructive", title: "Erro", description: error.message });
+        navigate("/checkin");
+      } else {
+        setViatura(data);
+      }
     } else {
-      setViatura(data);
+      const { data, error } = await supabase
+        .from("viaturas")
+        .select("*")
+        .eq("id", id)
+        .single();
+
+      if (error) {
+        toast({ variant: "destructive", title: "Erro", description: error.message });
+        navigate("/checkin");
+      } else {
+        setViatura(data);
+      }
     }
     setLoading(false);
   };
 
   const fetchItems = async () => {
-    const { data, error } = await supabase
-      .from("viatura_itens_config")
-      .select(`
-        itens_viatura (id, nome)
-      `)
-      .eq("viatura_id", id);
+    if (isKeycloakUser()) {
+      const { data, error } = await proxyFetch<any[]>("get_viatura_itens_config", { viatura_id: id });
+      if (!error && data) {
+        const formattedItems = data
+          .filter((item: any) => item.itens_viatura)
+          .map((item: any) => ({
+            id: item.itens_viatura!.id,
+            nome: item.itens_viatura!.nome
+          }));
+        setItems(formattedItems);
+        setHasItems(formattedItems.length > 0);
+      }
+    } else {
+      const { data, error } = await supabase
+        .from("viatura_itens_config")
+        .select(`
+          itens_viatura (id, nome)
+        `)
+        .eq("viatura_id", id);
 
-    if (!error && data) {
-      const formattedItems = data
-        .filter(item => item.itens_viatura)
-        .map(item => ({
-          id: item.itens_viatura!.id,
-          nome: item.itens_viatura!.nome
-        }));
-      setItems(formattedItems);
-      setHasItems(formattedItems.length > 0);
+      if (!error && data) {
+        const formattedItems = data
+          .filter(item => item.itens_viatura)
+          .map(item => ({
+            id: item.itens_viatura!.id,
+            nome: item.itens_viatura!.nome
+          }));
+        setItems(formattedItems);
+        setHasItems(formattedItems.length > 0);
+      }
     }
   };
 
@@ -168,7 +192,7 @@ export default function CheckinForm() {
         toast({ variant: "destructive", title: "Erro", description: "Todos os itens devem ser verificados" });
         return false;
       }
-      
+
       const missingObservation = step3Data.some(
         item => (item.situacao === "incompleto" || item.situacao === "ausente") && !item.observacao.trim()
       );
@@ -184,7 +208,7 @@ export default function CheckinForm() {
     const requiredPhotos = ["frente", "lateral_esquerda", "lateral_direita", "traseira"];
     const uploadedTypes = step4Data.map(p => p.tipo);
     const missing = requiredPhotos.filter(t => !uploadedTypes.includes(t));
-    
+
     if (missing.length > 0) {
       toast({ variant: "destructive", title: "Erro", description: "Todas as 4 fotos são obrigatórias" });
       return false;
@@ -197,7 +221,7 @@ export default function CheckinForm() {
     if (currentStep === 2 && !validateStep2()) return;
     if (currentStep === 3 && !validateStep3()) return;
     if (currentStep === 4 && !validateStep4()) return;
-    
+
     setCurrentStep(prev => Math.min(prev + 1, 5));
   };
 
@@ -208,7 +232,7 @@ export default function CheckinForm() {
   const uploadPhoto = async (photo: PhotoData, protocoloId: string) => {
     const fileExt = photo.file.name.split('.').pop();
     const fileName = `${protocoloId}/${photo.tipo}.${fileExt}`;
-    
+
     const { error: uploadError } = await supabase.storage
       .from("fotos-checklist")
       .upload(fileName, photo.file);
@@ -236,6 +260,61 @@ export default function CheckinForm() {
         return;
       }
 
+
+      if (isKeycloakUser()) {
+        // Proxy flow
+        const { data: checkinData, error: checkinError } = await proxyFetch<any>("create_checkin", {
+          viatura_id: id,
+          nome_agente: step1Data.agente_nome,
+          observacoes: `${step1Data.motivo}\n\n${observacaoGeral}`.trim(),
+          local_empenho: step1Data.local,
+          latitude_empenho: step1Data.latitude,
+          longitude_empenho: step1Data.longitude,
+          km_atual: parseInt(step1Data.km_atual) || null,
+          nivel_oleo: step2Data.nivel_oleo,
+          nivel_combustivel: parseFloat(step2Data.nivel_combustivel.replace("/", ".")) || null,
+          condicoes_mecanicas: step2Data.condicoes_mecanicas,
+          checklist_observacoes: step2Data.condicoes_mecanicas_observacao || null,
+          checklist_items: step3Data
+            .filter(item => item.situacao)
+            .map(item => ({
+              item_viatura_id: item.item_id,
+              situacao: item.situacao,
+              observacoes: item.observacao || null
+            }))
+        });
+
+        if (checkinError || !checkinData) {
+          throw checkinError || new Error("Erro ao criar checkin via proxy");
+        }
+
+        const { protocolo, checklist } = checkinData;
+
+        // Upload photos
+        const photosToInsert = [];
+        for (const photo of step4Data) {
+          const url = await uploadPhoto(photo, protocolo.id);
+          if (url) {
+            photosToInsert.push({
+              protocolo_empenho_id: protocolo.id,
+              checklist_veiculo_id: checklist?.id || null,
+              tipo_foto: "veiculo_geral",
+              url_foto: url,
+              descricao: photo.tipo
+            });
+          }
+        }
+
+        if (photosToInsert.length > 0) {
+          await proxyFetch("save_checkin_photos", { photos: photosToInsert });
+        }
+
+        toast({ title: "Check-In realizado!", description: `Protocolo: ${protocolo.numero_protocolo}` });
+        navigate("/");
+        return;
+      }
+
+      // Direct Supabase flow (existing code)
       // Generate protocol number
       const { data: numeroProtocolo } = await supabase.rpc("gerar_numero_protocolo");
 
@@ -313,7 +392,7 @@ export default function CheckinForm() {
       // Update vehicle status and km
       await supabase
         .from("viaturas")
-        .update({ 
+        .update({
           status_operacional: "empenhada",
           km_atual: parseInt(step1Data.km_atual)
         })
@@ -323,7 +402,11 @@ export default function CheckinForm() {
       navigate("/");
     } catch (error) {
       console.error("Error submitting checkin:", error);
-      toast({ variant: "destructive", title: "Erro", description: "Ocorreu um erro ao processar o check-in" });
+      toast({
+        variant: "destructive",
+        title: "Erro no Check-in",
+        description: error instanceof Error ? error.message : "Ocorreu um erro desconhecido ao processar o check-in"
+      });
     } finally {
       setSaving(false);
     }
@@ -416,9 +499,9 @@ export default function CheckinForm() {
             <ArrowRight className="w-4 h-4 ml-2" />
           </Button>
         ) : (
-          <Button 
-            type="button" 
-            onClick={handleSubmit} 
+          <Button
+            type="button"
+            onClick={handleSubmit}
             disabled={saving}
             className="bg-success hover:bg-success/90 text-success-foreground"
           >

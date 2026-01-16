@@ -76,7 +76,7 @@ export default function Viaturas() {
           .select("perfil")
           .eq("id", userId)
           .single();
-        
+
         if (data) {
           setIsGestor(data.perfil === "gestor" || data.perfil === "admin");
         }
@@ -110,6 +110,14 @@ export default function Viaturas() {
   };
 
   const fetchAvailableItems = async () => {
+    if (isKeycloakUser()) {
+      const { data, error } = await proxyFetch<ItemViatura[]>("get_itens");
+      if (!error && data) {
+        setAvailableItems(data);
+      }
+      return;
+    }
+
     const { data, error } = await supabase
       .from("itens_viatura")
       .select("id, nome, categoria, tipo")
@@ -121,6 +129,20 @@ export default function Viaturas() {
   };
 
   const fetchViaturaItems = async (viaturaId: string) => {
+    if (isKeycloakUser()) {
+      const { data, error } = await proxyFetch<any[]>("get_viatura_itens_config", { viatura_id: viaturaId });
+      if (!error && data) {
+        setSelectedItems(
+          data.map((item: any) => ({
+            item_viatura_id: item.item_viatura_id,
+            quantidade: item.quantidade_padrao || 1,
+            nome: item.itens_viatura?.nome || "",
+          }))
+        );
+      }
+      return;
+    }
+
     const { data, error } = await supabase
       .from("viatura_itens_config")
       .select("item_viatura_id, quantidade_padrao, itens_viatura(nome)")
@@ -232,10 +254,6 @@ export default function Viaturas() {
   };
 
   const saveViaturaItems = async (viaturaId: string) => {
-    // Delete existing items config
-    await supabase.from("viatura_itens_config").delete().eq("viatura_id", viaturaId);
-
-    // Insert new items
     if (selectedItems.length > 0) {
       const itemsToInsert = selectedItems.map((item) => ({
         viatura_id: viaturaId,
@@ -244,7 +262,21 @@ export default function Viaturas() {
         obrigatoriedade: "recomendado" as const,
       }));
 
-      await supabase.from("viatura_itens_config").insert(itemsToInsert);
+      if (isKeycloakUser()) {
+        await proxyFetch("save_viatura_items", {
+          viatura_id: viaturaId,
+          items: itemsToInsert
+        });
+      } else {
+        await supabase.from("viatura_itens_config").delete().eq("viatura_id", viaturaId);
+        await supabase.from("viatura_itens_config").insert(itemsToInsert);
+      }
+    } else {
+      if (isKeycloakUser()) {
+        await proxyFetch("save_viatura_items", { viatura_id: viaturaId, items: [] });
+      } else {
+        await supabase.from("viatura_itens_config").delete().eq("viatura_id", viaturaId);
+      }
     }
   };
 
@@ -533,8 +565,8 @@ export default function Viaturas() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={async () => { 
-                    setSelectedViatura(viatura); 
+                  onClick={async () => {
+                    setSelectedViatura(viatura);
                     const { data } = await supabase
                       .from("viatura_itens_config")
                       .select("item_viatura_id, quantidade_padrao, itens_viatura(nome)")
@@ -546,7 +578,7 @@ export default function Viaturas() {
                         nome: item.itens_viatura?.nome || "",
                       })));
                     }
-                    setViewDialogOpen(true); 
+                    setViewDialogOpen(true);
                   }}
                 >
                   <Eye className="w-4 h-4 mr-1" />

@@ -75,7 +75,7 @@ export default function Protocolos() {
     // Filter by search term
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(p => 
+      filtered = filtered.filter(p =>
         p.numero_protocolo?.toLowerCase().includes(term) ||
         p.viaturas?.prefixo?.toLowerCase().includes(term) ||
         p.viaturas?.placa?.toLowerCase().includes(term) ||
@@ -113,8 +113,8 @@ export default function Protocolos() {
       {/* Search and Filter */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1">
+          <div className="flex flex-col sm:flex-row gap-4 max-w-full">
+            <div className="relative flex-1 min-w-0">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Buscar por protocolo, viatura, placa, agente ou local..."
@@ -144,9 +144,9 @@ export default function Protocolos() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-4">
+      <div className="grid gap-4 max-w-[calc(100vw-2rem)] mx-auto">
         {filteredProtocolos.map((protocolo) => (
-          <Card key={protocolo.id} className="hover:shadow-md transition-shadow">
+          <Card key={protocolo.id} className="hover:shadow-md transition-shadow overflow-hidden">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg">{protocolo.numero_protocolo}</CardTitle>
@@ -157,16 +157,16 @@ export default function Protocolos() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 w-full max-w-full">
+                <div className="space-y-1 min-w-0 w-full sm:w-auto flex-1 overflow-hidden">
+                  <p className="text-sm text-muted-foreground truncate">
                     Agente: {protocolo.profiles?.nome || "N/A"}
                   </p>
                   <p className="text-sm text-muted-foreground">
                     Data: {format(new Date(protocolo.data_hora_empenho), "dd/MM/yyyy HH:mm", { locale: ptBR })}
                   </p>
                   {protocolo.local_empenho && (
-                    <p className="text-sm text-muted-foreground truncate max-w-md">
+                    <p className="text-sm text-muted-foreground truncate">
                       Local: {protocolo.local_empenho}
                     </p>
                   )}
@@ -174,6 +174,7 @@ export default function Protocolos() {
                 <Button
                   variant="outline"
                   size="sm"
+                  className="w-full sm:w-auto shrink-0"
                   onClick={() => navigate(`/protocolos/${protocolo.id}`)}
                 >
                   <Eye className="w-4 h-4 mr-1" />
@@ -187,7 +188,7 @@ export default function Protocolos() {
 
       {filteredProtocolos.length === 0 && (
         <div className="text-center py-12 text-muted-foreground">
-          {searchTerm || statusFilter !== "todos" 
+          {searchTerm || statusFilter !== "todos"
             ? "Nenhum protocolo encontrado com os filtros aplicados"
             : "Nenhum protocolo encontrado"
           }

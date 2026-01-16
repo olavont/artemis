@@ -102,7 +102,7 @@ export default function Layout({ children }: LayoutProps) {
     // Clear Keycloak session if exists
     const keycloakUser = localStorage.getItem("keycloak_user");
     const keycloakTokens = localStorage.getItem("keycloak_tokens");
-    
+
     if (keycloakUser) {
       localStorage.removeItem("keycloak_user");
       localStorage.removeItem("keycloak_tokens");
@@ -117,8 +117,8 @@ export default function Layout({ children }: LayoutProps) {
       const realm = "des-aureaphigital";
       const postLogoutRedirect = `${window.location.origin}/auth`;
 
-      let logoutUrl = `${keycloakBaseUrl}/realms/${realm}/protocol/openid-connect/logout?post_logout_redirect_uri=${encodeURIComponent(postLogoutRedirect)}&client_id=portal_helios_des_authorization_code`;
-      
+      let logoutUrl = `${keycloakBaseUrl}/realms/${realm}/protocol/openid-connect/logout?post_logout_redirect_uri=${encodeURIComponent(postLogoutRedirect)}&client_id=appmob_artemis_des_password_credential`;
+
       // Add id_token_hint if available for proper logout
       if (keycloakTokens) {
         try {

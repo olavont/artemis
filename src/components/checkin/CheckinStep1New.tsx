@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Plus, X, MapPin } from "lucide-react";
 import VehicleLocationMap from "@/components/VehicleLocationMap";
 import { useState, useEffect } from "react";
+import { Geolocation } from "@capacitor/geolocation";
 
 interface CheckinStep1NewProps {
   data: {
@@ -37,38 +38,61 @@ export function CheckinStep1New({ data, onChange, vehicleInfo, kmMinimo, tipo = 
     }
   }, []);
 
-  const getLocation = () => {
-    if (!navigator.geolocation) {
-      return;
-    }
-
+  const getLocation = async () => {
     setGettingLocation(true);
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const lat = position.coords.latitude;
-        const lng = position.coords.longitude;
-        onChange("latitude", lat);
-        onChange("longitude", lng);
+    try {
+      // Check permissions first
+      const permissionStatus = await Geolocation.checkPermissions();
 
-        // Try to get address from coordinates
-        try {
-          const response = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`
-          );
-          const data = await response.json();
-          if (data.display_name) {
-            onChange("local", data.display_name);
-          }
-        } catch (error) {
-          console.error("Error getting address:", error);
+      if (permissionStatus.location === 'denied' || permissionStatus.location === 'prompt') {
+        const permission = await Geolocation.requestPermissions();
+        if (permission.location === 'denied') {
+          throw new Error('Permissão de localização negada');
         }
-        setGettingLocation(false);
-      },
-      (error) => {
-        console.error("Error getting location:", error);
-        setGettingLocation(false);
       }
-    );
+
+      const position = await Geolocation.getCurrentPosition({
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      });
+
+      const lat = position.coords.latitude;
+      const lng = position.coords.longitude;
+      onChange("latitude", lat);
+      onChange("longitude", lng);
+
+      // Try to get address from coordinates
+      try {
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`
+        );
+        const data = await response.json();
+        if (data.display_name) {
+          onChange("local", data.display_name);
+        }
+      } catch (error) {
+        console.error("Error getting address:", error);
+      }
+    } catch (error) {
+      console.error("Error getting location:", error);
+      // Fallback to browser geolocation if capacitor fails (e.g. web testing)
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          async (position) => {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            onChange("latitude", lat);
+            onChange("longitude", lng);
+          },
+          (err) => {
+            console.error("Browser geolocation also failed:", err);
+          }
+        );
+      }
+    } finally {
+      setGettingLocation(false);
+    }
   };
 
   const handleKmBlur = () => {
@@ -204,7 +228,7 @@ export function CheckinStep1New({ data, onChange, vehicleInfo, kmMinimo, tipo = 
           <Label className="text-base font-semibold">
             {localLabel} *
           </Label>
-          
+
           <div className="flex gap-2">
             <Input
               placeholder={localPlaceholder}
@@ -226,8 +250,8 @@ export function CheckinStep1New({ data, onChange, vehicleInfo, kmMinimo, tipo = 
 
           {data.latitude && data.longitude && (
             <div className="rounded-lg overflow-hidden border">
-              <VehicleLocationMap 
-                vehicleInfo={vehicleInfo || ""} 
+              <VehicleLocationMap
+                vehicleInfo={vehicleInfo || ""}
                 latitude={data.latitude}
                 longitude={data.longitude}
               />

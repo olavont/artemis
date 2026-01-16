@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Button } from '@/components/ui/button';
 import { MapPin } from 'lucide-react';
+import { Geolocation } from '@capacitor/geolocation';
 
 // Fix for default marker icons
 import icon from 'leaflet/dist/images/marker-icon.png';
@@ -60,49 +61,51 @@ export default function VehicleLocationMap({
     }
   };
 
-  const startTracking = () => {
-    if ('geolocation' in navigator) {
-      setIsTracking(true);
+  const startTracking = async () => {
+    setIsTracking(true);
+
+    try {
+      const permissionStatus = await Geolocation.checkPermissions();
+      if (permissionStatus.location === 'denied' || permissionStatus.location === 'prompt') {
+        const permission = await Geolocation.requestPermissions();
+        if (permission.location === 'denied') {
+          throw new Error('Permissão negada');
+        }
+      }
 
       // Get initial position
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          updateMarkerPosition(position.coords.latitude, position.coords.longitude);
-        },
-        (error) => {
-          console.error('Erro ao obter localização:', error);
-          alert('Não foi possível obter sua localização. Verifique as permissões do navegador.');
-          setIsTracking(false);
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0
-        }
-      );
+      const position = await Geolocation.getCurrentPosition({
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      });
+
+      updateMarkerPosition(position.coords.latitude, position.coords.longitude);
 
       // Watch position changes
-      watchIdRef.current = navigator.geolocation.watchPosition(
-        (position) => {
-          updateMarkerPosition(position.coords.latitude, position.coords.longitude);
-        },
-        (error) => {
-          console.error('Erro ao rastrear localização:', error);
-        },
+      const watchId = await Geolocation.watchPosition(
         {
           enableHighAccuracy: true,
           timeout: 5000,
           maximumAge: 0
+        },
+        (position) => {
+          if (position) {
+            updateMarkerPosition(position.coords.latitude, position.coords.longitude);
+          }
         }
       );
-    } else {
-      alert('Geolocalização não é suportada pelo seu navegador.');
+
+      watchIdRef.current = parseInt(watchId); // Geolocation returns a string ID
+    } catch (error) {
+      console.error('Erro ao obter localização:', error);
+      setIsTracking(false);
     }
   };
 
-  const stopTracking = () => {
+  const stopTracking = async () => {
     if (watchIdRef.current !== null) {
-      navigator.geolocation.clearWatch(watchIdRef.current);
+      await Geolocation.clearWatch({ id: watchIdRef.current.toString() });
       watchIdRef.current = null;
     }
     setIsTracking(false);

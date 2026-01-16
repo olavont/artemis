@@ -70,17 +70,15 @@ Deno.serve(async (req) => {
         break
 
       case 'get_viatura':
-        if (isGestorOrAdmin) {
-          const result = await supabase
-            .from('viaturas')
-            .select('*')
-            .eq('id', params.id)
-            .single()
-          data = result.data
-          error = result.error
-        } else {
-          throw new Error('Unauthorized')
-        }
+        // All authenticated users can see vehicle details
+        const result = await supabase
+          .from('viaturas')
+          .select('*')
+          .eq('id', params.id)
+          .single()
+        data = result.data
+        error = result.error
+        break
         break
 
       case 'get_itens':
@@ -208,7 +206,6 @@ Deno.serve(async (req) => {
           .from('viatura_itens_config')
           .select(`
             *,
-            item:itens_viatura(*),
             itens_viatura (id, nome, categoria, tipo)
           `)
           .eq('viatura_id', params.viatura_id)
@@ -325,6 +322,120 @@ Deno.serve(async (req) => {
         error = deleteResult.error
         break
 
+      case 'save_viatura_items':
+        if (!isGestorOrAdmin) {
+          throw new Error('Unauthorized: Only gestors and admins can manage vehicle items')
+        }
+
+        // 1. Delete existing items
+        const deleteItemsResult = await supabase
+          .from('viatura_itens_config')
+          .delete()
+          .eq('viatura_id', params.viatura_id)
+
+        if (deleteItemsResult.error) {
+          error = deleteItemsResult.error
+          break
+        }
+
+        // 2. Insert new items if provided
+        if (params.items && params.items.length > 0) {
+          const insertItemsResult = await supabase
+            .from('viatura_itens_config')
+            .insert(params.items)
+
+          data = insertItemsResult.data
+          error = insertItemsResult.error
+        } else {
+          data = { success: true }
+        }
+        break
+
+      case 'create_checkin':
+        // Generate protocol number
+        const { data: numeroProtocolo, error: numeroError } = await supabase.rpc("gerar_numero_protocolo")
+        if (numeroError) throw numeroError
+
+        // Create protocol
+        const { data: protocolo, error: protocoloError } = await supabase
+          .from("protocolos_empenho")
+          .insert({
+            numero_protocolo: numeroProtocolo,
+            viatura_id: params.viatura_id,
+            agente_responsavel_id: userId, // Use authenticated user ID
+            nome_agente: params.nome_agente,
+            observacoes: params.observacoes,
+            local_empenho: params.local_empenho,
+            latitude_empenho: params.latitude_empenho,
+            longitude_empenho: params.longitude_empenho,
+            status: 'em_andamento'
+          })
+          .select()
+          .single()
+
+        if (protocoloError) throw protocoloError
+
+        // Create checklist
+        const { data: checklist, error: checklistError } = await supabase
+          .from("checklists_veiculo")
+          .insert({
+            protocolo_empenho_id: protocolo.id,
+            tipo_checklist: "empenho",
+            km_atual: params.km_atual,
+            nivel_oleo: params.nivel_oleo,
+            nivel_combustivel: params.nivel_combustivel,
+            condicoes_mecanicas: params.condicoes_mecanicas,
+            observacoes: params.checklist_observacoes
+          })
+          .select()
+          .single()
+
+        if (checklistError) throw checklistError
+
+        // Insert checklist items
+        if (params.checklist_items && params.checklist_items.length > 0) {
+          const itemsToInsert = params.checklist_items.map((item: any) => ({
+            checklist_veiculo_id: checklist.id,
+            item_viatura_id: item.item_viatura_id,
+            situacao: item.situacao,
+            observacoes: item.observacoes
+          }))
+
+          const { error: itemsError } = await supabase
+            .from("checklist_itens")
+            .insert(itemsToInsert)
+
+          if (itemsError) throw itemsError
+        }
+
+        // Update vehicle status
+        const { error: updateError } = await supabase
+          .from("viaturas")
+          .update({
+            status_operacional: "empenhada",
+            km_atual: params.km_atual
+          })
+          .eq("id", params.viatura_id)
+
+        if (updateError) throw updateError
+
+        data = { protocolo, checklist }
+        break
+
+      case 'save_checkin_photos':
+        if (!params.photos || !Array.isArray(params.photos)) {
+          throw new Error("Photos array is required")
+        }
+
+        const { error: photosError } = await supabase
+          .from("fotos_checklist")
+          .insert(params.photos)
+
+        if (photosError) throw photosError
+
+        data = { success: true }
+        break
+
       case 'get_dashboard_stats':
         if (isGestorOrAdmin) {
           // Get vehicle counts by status
@@ -382,7 +493,7 @@ Deno.serve(async (req) => {
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400,
+        status: 200,
       }
     )
   }
