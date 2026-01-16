@@ -130,6 +130,7 @@ export type Database = {
           pneu_status: string | null
           protocolo_devolucao_id: string | null
           protocolo_empenho_id: string | null
+          tenant: string | null
           tipo_checklist: Database["public"]["Enums"]["tipo_checklist"]
         }
         Insert: {
@@ -155,6 +156,7 @@ export type Database = {
           pneu_status?: string | null
           protocolo_devolucao_id?: string | null
           protocolo_empenho_id?: string | null
+          tenant?: string | null
           tipo_checklist: Database["public"]["Enums"]["tipo_checklist"]
         }
         Update: {
@@ -180,6 +182,7 @@ export type Database = {
           pneu_status?: string | null
           protocolo_devolucao_id?: string | null
           protocolo_empenho_id?: string | null
+          tenant?: string | null
           tipo_checklist?: Database["public"]["Enums"]["tipo_checklist"]
         }
         Relationships: [
@@ -207,6 +210,7 @@ export type Database = {
           id: string
           protocolo_devolucao_id: string | null
           protocolo_empenho_id: string | null
+          tenant: string | null
           tipo_foto: Database["public"]["Enums"]["tipo_foto"]
           url_foto: string
         }
@@ -217,6 +221,7 @@ export type Database = {
           id?: string
           protocolo_devolucao_id?: string | null
           protocolo_empenho_id?: string | null
+          tenant?: string | null
           tipo_foto: Database["public"]["Enums"]["tipo_foto"]
           url_foto: string
         }
@@ -227,6 +232,7 @@ export type Database = {
           id?: string
           protocolo_devolucao_id?: string | null
           protocolo_empenho_id?: string | null
+          tenant?: string | null
           tipo_foto?: Database["public"]["Enums"]["tipo_foto"]
           url_foto?: string
         }
@@ -261,6 +267,7 @@ export type Database = {
           descricao: string | null
           id: string
           nome: string
+          tenant: string | null
           tipo: Database["public"]["Enums"]["tipo_item"]
         }
         Insert: {
@@ -269,6 +276,7 @@ export type Database = {
           descricao?: string | null
           id?: string
           nome: string
+          tenant?: string | null
           tipo: Database["public"]["Enums"]["tipo_item"]
         }
         Update: {
@@ -277,6 +285,7 @@ export type Database = {
           descricao?: string | null
           id?: string
           nome?: string
+          tenant?: string | null
           tipo?: Database["public"]["Enums"]["tipo_item"]
         }
         Relationships: []
@@ -340,6 +349,7 @@ export type Database = {
           matricula: string | null
           nome: string
           perfil: Database["public"]["Enums"]["perfil_usuario"]
+          tenant: string | null
           updated_at: string
         }
         Insert: {
@@ -349,6 +359,7 @@ export type Database = {
           matricula?: string | null
           nome: string
           perfil?: Database["public"]["Enums"]["perfil_usuario"]
+          tenant?: string | null
           updated_at?: string
         }
         Update: {
@@ -358,6 +369,7 @@ export type Database = {
           matricula?: string | null
           nome?: string
           perfil?: Database["public"]["Enums"]["perfil_usuario"]
+          tenant?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -375,6 +387,7 @@ export type Database = {
           observacoes: string | null
           protocolo_empenho_id: string
           tempo_empenho_total_minutos: number | null
+          tenant: string | null
         }
         Insert: {
           agente_responsavel_id: string
@@ -388,6 +401,7 @@ export type Database = {
           observacoes?: string | null
           protocolo_empenho_id: string
           tempo_empenho_total_minutos?: number | null
+          tenant?: string | null
         }
         Update: {
           agente_responsavel_id?: string
@@ -401,6 +415,7 @@ export type Database = {
           observacoes?: string | null
           protocolo_empenho_id?: string
           tempo_empenho_total_minutos?: number | null
+          tenant?: string | null
         }
         Relationships: [
           {
@@ -433,6 +448,7 @@ export type Database = {
           observacoes: string | null
           status: Database["public"]["Enums"]["status_protocolo"]
           tempo_empenho_minutos: number | null
+          tenant: string | null
           viatura_id: string
         }
         Insert: {
@@ -448,6 +464,7 @@ export type Database = {
           observacoes?: string | null
           status?: Database["public"]["Enums"]["status_protocolo"]
           tempo_empenho_minutos?: number | null
+          tenant?: string | null
           viatura_id: string
         }
         Update: {
@@ -463,6 +480,7 @@ export type Database = {
           observacoes?: string | null
           status?: Database["public"]["Enums"]["status_protocolo"]
           tempo_empenho_minutos?: number | null
+          tenant?: string | null
           viatura_id?: string
         }
         Relationships: [
@@ -489,6 +507,7 @@ export type Database = {
           item_viatura_id: string | null
           obrigatoriedade: Database["public"]["Enums"]["obrigatoriedade_item"]
           quantidade_padrao: number | null
+          tenant: string | null
           viatura_id: string | null
         }
         Insert: {
@@ -497,6 +516,7 @@ export type Database = {
           item_viatura_id?: string | null
           obrigatoriedade?: Database["public"]["Enums"]["obrigatoriedade_item"]
           quantidade_padrao?: number | null
+          tenant?: string | null
           viatura_id?: string | null
         }
         Update: {
@@ -505,6 +525,7 @@ export type Database = {
           item_viatura_id?: string | null
           obrigatoriedade?: Database["public"]["Enums"]["obrigatoriedade_item"]
           quantidade_padrao?: number | null
+          tenant?: string | null
           viatura_id?: string | null
         }
         Relationships: [
@@ -544,6 +565,7 @@ export type Database = {
             | Database["public"]["Enums"]["situacao_licenciamento"]
             | null
           status_operacional: Database["public"]["Enums"]["status_operacional"]
+          tenant: string | null
           tipo: string | null
           updated_at: string
         }
@@ -566,6 +588,7 @@ export type Database = {
             | Database["public"]["Enums"]["situacao_licenciamento"]
             | null
           status_operacional?: Database["public"]["Enums"]["status_operacional"]
+          tenant?: string | null
           tipo?: string | null
           updated_at?: string
         }
@@ -588,6 +611,7 @@ export type Database = {
             | Database["public"]["Enums"]["situacao_licenciamento"]
             | null
           status_operacional?: Database["public"]["Enums"]["status_operacional"]
+          tenant?: string | null
           tipo?: string | null
           updated_at?: string
         }
@@ -599,6 +623,7 @@ export type Database = {
     }
     Functions: {
       gerar_numero_protocolo: { Args: never; Returns: string }
+      get_my_tenant: { Args: never; Returns: string }
       get_user_perfil: {
         Args: { user_id: string }
         Returns: Database["public"]["Enums"]["perfil_usuario"]
