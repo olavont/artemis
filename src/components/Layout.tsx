@@ -36,9 +36,10 @@ export default function Layout({ children }: LayoutProps) {
 
       if (keycloakUser) {
         const userData = JSON.parse(keycloakUser);
-        setUser({ id: userData.id, email: userData.email } as any);
+        const keycloakId = userData.sub || userData.id;
+        setUser({ id: keycloakId, email: userData.email } as any);
         // Fetch profile from database via proxy-data
-        fetchProfile(userData.id);
+        if (keycloakId) fetchProfile(keycloakId);
         setLoading(false);
         return;
       }
