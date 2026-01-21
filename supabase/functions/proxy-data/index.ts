@@ -23,10 +23,10 @@ Deno.serve(async (req) => {
 
     console.log(`Proxy request: action=${action}, userId=${userId}`)
 
-    // Verify user exists and get their role
+    // Verify user exists and get their role AND tenant
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('id, nome, perfil, ativo')
+      .select('id, nome, perfil, ativo, tenant')
       .eq('id', userId)
       .single()
 
@@ -40,10 +40,19 @@ Deno.serve(async (req) => {
     }
 
     const isGestorOrAdmin = profile.perfil === 'gestor' || profile.perfil === 'admin'
-    console.log(`User role: ${profile.perfil}, isGestorOrAdmin: ${isGestorOrAdmin}`)
+    const userTenant = profile.tenant
+    console.log(`User role: ${profile.perfil}, isGestorOrAdmin: ${isGestorOrAdmin}, tenant: ${userTenant}`)
 
     let data: any = null
     let error: any = null
+
+    // Helper to add tenant filter when needed
+    const addTenantFilter = (query: any) => {
+      if (userTenant) {
+        return query.eq('tenant', userTenant)
+      }
+      return query
+    }
 
     switch (action) {
       case 'get_my_profile':
@@ -52,16 +61,19 @@ Deno.serve(async (req) => {
           id: profile.id,
           nome: profile.nome,
           perfil: profile.perfil,
-          ativo: profile.ativo
+          ativo: profile.ativo,
+          tenant: profile.tenant
         }
         break
 
       case 'get_viaturas':
         if (isGestorOrAdmin) {
-          const result = await supabase
+          let query = supabase
             .from('viaturas')
             .select('*')
             .order('prefixo', { ascending: true })
+          query = addTenantFilter(query)
+          const result = await query
           data = result.data
           error = result.error
         } else {
@@ -69,32 +81,36 @@ Deno.serve(async (req) => {
         }
         break
 
-      case 'get_viatura':
-        // All authenticated users can see vehicle details
-        const result = await supabase
+      case 'get_viatura': {
+        // All authenticated users can see vehicle details (filtered by tenant)
+        let query = supabase
           .from('viaturas')
           .select('*')
           .eq('id', params.id)
-          .single()
+        query = addTenantFilter(query)
+        const result = await query.single()
         data = result.data
         error = result.error
         break
-        break
+      }
 
-      case 'get_itens':
-        // All authenticated users can see items
-        const itensResult = await supabase
+      case 'get_itens': {
+        // All authenticated users can see items (filtered by tenant)
+        let query = supabase
           .from('itens_viatura')
           .select('*')
           .order('nome', { ascending: true })
+        query = addTenantFilter(query)
+        const itensResult = await query
         data = itensResult.data
         error = itensResult.error
         break
+      }
 
       case 'get_protocolos':
         if (isGestorOrAdmin) {
-          // Gestors/admins see all protocols
-          const protocolosResult = await supabase
+          // Gestors/admins see all protocols of their tenant
+          let query = supabase
             .from('protocolos_empenho')
             .select(`
               *,
@@ -102,11 +118,13 @@ Deno.serve(async (req) => {
               agente:profiles!protocolos_empenho_agente_responsavel_id_fkey(nome)
             `)
             .order('created_at', { ascending: false })
+          query = addTenantFilter(query)
+          const protocolosResult = await query
           data = protocolosResult.data
           error = protocolosResult.error
         } else {
-          // Agents see only their own protocols
-          const protocolosResult = await supabase
+          // Agents see only their own protocols (filtered by tenant)
+          let query = supabase
             .from('protocolos_empenho')
             .select(`
               *,
@@ -115,6 +133,8 @@ Deno.serve(async (req) => {
             `)
             .eq('agente_responsavel_id', userId)
             .order('created_at', { ascending: false })
+          query = addTenantFilter(query)
+          const protocolosResult = await query
           data = protocolosResult.data
           error = protocolosResult.error
         }
@@ -125,7 +145,7 @@ Deno.serve(async (req) => {
           throw new Error('Missing params.id')
         }
 
-        const protocoloResult = await supabase
+        let query = supabase
           .from('protocolos_empenho')
           .select(`
             *,
@@ -180,7 +200,8 @@ Deno.serve(async (req) => {
             )
           `)
           .eq('id', params.id)
-          .maybeSingle()
+        query = addTenantFilter(query)
+        const protocoloResult = await query.maybeSingle()
 
         if (protocoloResult.error) {
           throw protocoloResult.error
@@ -201,29 +222,33 @@ Deno.serve(async (req) => {
       }
 
 
-      case 'get_viatura_itens_config':
-        const configResult = await supabase
+      case 'get_viatura_itens_config': {
+        let query = supabase
           .from('viatura_itens_config')
           .select(`
             *,
             itens_viatura (id, nome, categoria, tipo)
           `)
           .eq('viatura_id', params.viatura_id)
+        query = addTenantFilter(query)
+        const configResult = await query
         data = configResult.data
         error = configResult.error
         break
+      }
 
       case 'get_fotos_protocolo': {
         if (!params?.protocolo_empenho_id) {
           throw new Error('Missing params.protocolo_empenho_id')
         }
 
-        // Verify access to this protocol
-        const protocoloCheck = await supabase
+        // Verify access to this protocol (with tenant filter)
+        let checkQuery = supabase
           .from('protocolos_empenho')
           .select('id, agente_responsavel_id')
           .eq('id', params.protocolo_empenho_id)
-          .single()
+        checkQuery = addTenantFilter(checkQuery)
+        const protocoloCheck = await checkQuery.single()
 
         if (protocoloCheck.error || !protocoloCheck.data) {
           throw new Error('Protocolo não encontrado')
@@ -233,25 +258,30 @@ Deno.serve(async (req) => {
           throw new Error('Unauthorized')
         }
 
-        // Get fotos from check-in
-        const fotosEmpenhoResult = await supabase
+        // Get fotos from check-in (filtered by tenant)
+        let fotosQuery = supabase
           .from('fotos_checklist')
           .select('*')
           .eq('protocolo_empenho_id', params.protocolo_empenho_id)
+        fotosQuery = addTenantFilter(fotosQuery)
+        const fotosEmpenhoResult = await fotosQuery
 
         // Check for return protocol
-        const devolucaoResult = await supabase
+        let devolucaoQuery = supabase
           .from('protocolos_devolucao')
           .select('id')
           .eq('protocolo_empenho_id', params.protocolo_empenho_id)
-          .maybeSingle()
+        devolucaoQuery = addTenantFilter(devolucaoQuery)
+        const devolucaoResult = await devolucaoQuery.maybeSingle()
 
         let fotosDevolucao: any[] = []
         if (devolucaoResult.data) {
-          const fotosDevolucaoResult = await supabase
+          let fotosDevolucaoQuery = supabase
             .from('fotos_checklist')
             .select('*')
             .eq('protocolo_devolucao_id', devolucaoResult.data.id)
+          fotosDevolucaoQuery = addTenantFilter(fotosDevolucaoQuery)
+          const fotosDevolucaoResult = await fotosDevolucaoQuery
           fotosDevolucao = fotosDevolucaoResult.data || []
         }
 
@@ -262,10 +292,12 @@ Deno.serve(async (req) => {
 
       case 'get_profiles':
         if (isGestorOrAdmin) {
-          const profilesResult = await supabase
+          let query = supabase
             .from('profiles')
             .select('*')
             .order('nome', { ascending: true })
+          query = addTenantFilter(query)
+          const profilesResult = await query
           data = profilesResult.data
           error = profilesResult.error
         } else {
@@ -273,76 +305,91 @@ Deno.serve(async (req) => {
         }
         break
 
-      case 'get_viaturas_disponiveis':
-        const disponiveisResult = await supabase
+      case 'get_viaturas_disponiveis': {
+        let query = supabase
           .from('viaturas')
           .select('*')
           .eq('status_operacional', 'disponivel')
           .order('prefixo', { ascending: true })
+        query = addTenantFilter(query)
+        const disponiveisResult = await query
         data = disponiveisResult.data
         error = disponiveisResult.error
         break
+      }
 
       case 'create_viatura':
         if (!isGestorOrAdmin) {
           throw new Error('Unauthorized: Only gestors and admins can create vehicles')
         }
+        // Set tenant on new vehicle
+        const viaturaData = { ...params.viatura, tenant: userTenant }
         const createResult = await supabase
           .from('viaturas')
-          .insert([params.viatura])
+          .insert([viaturaData])
           .select()
           .single()
         data = createResult.data
         error = createResult.error
         break
 
-      case 'update_viatura':
+      case 'update_viatura': {
         if (!isGestorOrAdmin) {
           throw new Error('Unauthorized: Only gestors and admins can update vehicles')
         }
-        const updateResult = await supabase
+        let updateQuery = supabase
           .from('viaturas')
           .update(params.viatura)
           .eq('id', params.id)
-          .select()
-          .single()
+        updateQuery = addTenantFilter(updateQuery)
+        const updateResult = await updateQuery.select().single()
         data = updateResult.data
         error = updateResult.error
         break
+      }
 
-      case 'delete_viatura':
+      case 'delete_viatura': {
         if (profile.perfil !== 'admin') {
           throw new Error('Unauthorized: Only admins can delete vehicles')
         }
-        const deleteResult = await supabase
+        let deleteQuery = supabase
           .from('viaturas')
           .delete()
           .eq('id', params.id)
+        deleteQuery = addTenantFilter(deleteQuery)
+        const deleteResult = await deleteQuery
         data = { deleted: true }
         error = deleteResult.error
         break
+      }
 
-      case 'save_viatura_items':
+      case 'save_viatura_items': {
         if (!isGestorOrAdmin) {
           throw new Error('Unauthorized: Only gestors and admins can manage vehicle items')
         }
 
-        // 1. Delete existing items
-        const deleteItemsResult = await supabase
+        // 1. Delete existing items (filtered by tenant)
+        let deleteItemsQuery = supabase
           .from('viatura_itens_config')
           .delete()
           .eq('viatura_id', params.viatura_id)
+        deleteItemsQuery = addTenantFilter(deleteItemsQuery)
+        const deleteItemsResult = await deleteItemsQuery
 
         if (deleteItemsResult.error) {
           error = deleteItemsResult.error
           break
         }
 
-        // 2. Insert new items if provided
+        // 2. Insert new items if provided (with tenant)
         if (params.items && params.items.length > 0) {
+          const itemsWithTenant = params.items.map((item: any) => ({
+            ...item,
+            tenant: userTenant
+          }))
           const insertItemsResult = await supabase
             .from('viatura_itens_config')
-            .insert(params.items)
+            .insert(itemsWithTenant)
 
           data = insertItemsResult.data
           error = insertItemsResult.error
@@ -350,32 +397,34 @@ Deno.serve(async (req) => {
           data = { success: true }
         }
         break
+      }
 
-      case 'create_checkin':
+      case 'create_checkin': {
         // Generate protocol number
         const { data: numeroProtocolo, error: numeroError } = await supabase.rpc("gerar_numero_protocolo")
         if (numeroError) throw numeroError
 
-        // Create protocol
+        // Create protocol (with tenant)
         const { data: protocolo, error: protocoloError } = await supabase
           .from("protocolos_empenho")
           .insert({
             numero_protocolo: numeroProtocolo,
             viatura_id: params.viatura_id,
-            agente_responsavel_id: userId, // Use authenticated user ID
+            agente_responsavel_id: userId,
             nome_agente: params.nome_agente,
             observacoes: params.observacoes,
             local_empenho: params.local_empenho,
             latitude_empenho: params.latitude_empenho,
             longitude_empenho: params.longitude_empenho,
-            status: 'em_andamento'
+            status: 'em_andamento',
+            tenant: userTenant
           })
           .select()
           .single()
 
         if (protocoloError) throw protocoloError
 
-        // Create checklist
+        // Create checklist (with tenant)
         const { data: checklist, error: checklistError } = await supabase
           .from("checklists_veiculo")
           .insert({
@@ -385,7 +434,8 @@ Deno.serve(async (req) => {
             nivel_oleo: params.nivel_oleo,
             nivel_combustivel: params.nivel_combustivel,
             condicoes_mecanicas: params.condicoes_mecanicas,
-            observacoes: params.checklist_observacoes
+            observacoes: params.checklist_observacoes,
+            tenant: userTenant
           })
           .select()
           .single()
@@ -408,33 +458,43 @@ Deno.serve(async (req) => {
           if (itemsError) throw itemsError
         }
 
-        // Update vehicle status
-        const { error: updateError } = await supabase
+        // Update vehicle status (filtered by tenant)
+        let updateViaturaQuery = supabase
           .from("viaturas")
           .update({
             status_operacional: "empenhada",
             km_atual: params.km_atual
           })
           .eq("id", params.viatura_id)
+        updateViaturaQuery = addTenantFilter(updateViaturaQuery)
+        const { error: updateError } = await updateViaturaQuery
 
         if (updateError) throw updateError
 
         data = { protocolo, checklist }
         break
+      }
 
-      case 'save_checkin_photos':
+      case 'save_checkin_photos': {
         if (!params.photos || !Array.isArray(params.photos)) {
           throw new Error("Photos array is required")
         }
 
+        // Add tenant to photos
+        const photosWithTenant = params.photos.map((photo: any) => ({
+          ...photo,
+          tenant: userTenant
+        }))
+
         const { error: photosError } = await supabase
           .from("fotos_checklist")
-          .insert(params.photos)
+          .insert(photosWithTenant)
 
         if (photosError) throw photosError
 
         data = { success: true }
         break
+      }
 
       case 'get_dashboard_stats': {
         const periodo = params?.periodo || 7
@@ -443,13 +503,15 @@ Deno.serve(async (req) => {
         dataInicio.setHours(0, 0, 0, 0)
         const dataInicioISO = dataInicio.toISOString()
 
-        // Get vehicle counts by status
-        const viaturasResult = await supabase
+        // Get vehicle counts by status (filtered by tenant)
+        let viaturasQuery = supabase
           .from('viaturas')
           .select('status_operacional')
+        viaturasQuery = addTenantFilter(viaturasQuery)
+        const viaturasResult = await viaturasQuery
 
-        // Get protocols with completions for time average
-        const protocolosCompletosResult = await supabase
+        // Get protocols with completions for time average (filtered by tenant)
+        let protocolosCompletosQuery = supabase
           .from('protocolos_empenho')
           .select(`
             id,
@@ -457,9 +519,11 @@ Deno.serve(async (req) => {
             protocolos_devolucao(data_hora_devolucao)
           `)
           .gte('data_hora_empenho', dataInicioISO)
+        protocolosCompletosQuery = addTenantFilter(protocolosCompletosQuery)
+        const protocolosCompletosResult = await protocolosCompletosQuery
 
-        // Get checklists for km average
-        const checklistsEmpenhoResult = await supabase
+        // Get checklists for km average (filtered by tenant)
+        let checklistsEmpenhoQuery = supabase
           .from('checklists_veiculo')
           .select(`
             km_atual,
@@ -467,8 +531,10 @@ Deno.serve(async (req) => {
           `)
           .eq('tipo_checklist', 'empenho')
           .not('protocolo_empenho_id', 'is', null)
+        checklistsEmpenhoQuery = addTenantFilter(checklistsEmpenhoQuery)
+        const checklistsEmpenhoResult = await checklistsEmpenhoQuery
 
-        const checklistsDevolucaoResult = await supabase
+        let checklistsDevolucaoQuery = supabase
           .from('checklists_veiculo')
           .select(`
             km_atual,
@@ -477,12 +543,16 @@ Deno.serve(async (req) => {
           `)
           .eq('tipo_checklist', 'devolucao')
           .not('protocolo_devolucao_id', 'is', null)
+        checklistsDevolucaoQuery = addTenantFilter(checklistsDevolucaoQuery)
+        const checklistsDevolucaoResult = await checklistsDevolucaoQuery
 
-        // Get protocols by day for chart
-        const protocolosPorDiaResult = await supabase
+        // Get protocols by day for chart (filtered by tenant)
+        let protocolosPorDiaQuery = supabase
           .from('protocolos_empenho')
           .select('data_hora_empenho')
           .gte('data_hora_empenho', dataInicioISO)
+        protocolosPorDiaQuery = addTenantFilter(protocolosPorDiaQuery)
+        const protocolosPorDiaResult = await protocolosPorDiaQuery
 
         // Calculate time average
         let tempoMedioMinutos = 0
@@ -534,8 +604,8 @@ Deno.serve(async (req) => {
         break
       }
 
-      case 'create_checkout':
-        // Create return protocol (devolução)
+      case 'create_checkout': {
+        // Create return protocol (devolução) with tenant
         const { data: devolucao, error: devolucaoError } = await supabase
           .from("protocolos_devolucao")
           .insert({
@@ -545,14 +615,15 @@ Deno.serve(async (req) => {
             observacoes: params.observacoes,
             local_devolucao: params.local_devolucao,
             latitude_devolucao: params.latitude_devolucao,
-            longitude_devolucao: params.longitude_devolucao
+            longitude_devolucao: params.longitude_devolucao,
+            tenant: userTenant
           })
           .select()
           .single()
 
         if (devolucaoError) throw devolucaoError
 
-        // Create checklist
+        // Create checklist with tenant
         const { data: checklistDev, error: checklistDevError } = await supabase
           .from("checklists_veiculo")
           .insert({
@@ -562,7 +633,8 @@ Deno.serve(async (req) => {
             nivel_oleo: params.nivel_oleo,
             nivel_combustivel: params.nivel_combustivel,
             condicoes_mecanicas: params.condicoes_mecanicas,
-            observacoes: params.checklist_observacoes
+            observacoes: params.checklist_observacoes,
+            tenant: userTenant
           })
           .select()
           .single()
@@ -585,41 +657,53 @@ Deno.serve(async (req) => {
           if (itemsDevError) throw itemsDevError
         }
 
-        // Update protocol status
-        const { error: updateProtoError } = await supabase
+        // Update protocol status (filtered by tenant)
+        let updateProtoQuery = supabase
           .from("protocolos_empenho")
           .update({ status: "concluido" })
           .eq("id", params.protocolo_empenho_id)
+        updateProtoQuery = addTenantFilter(updateProtoQuery)
+        const { error: updateProtoError } = await updateProtoQuery
 
         if (updateProtoError) throw updateProtoError
 
-        // Update vehicle status and km_atual
-        const { error: updateViaturaError } = await supabase
+        // Update vehicle status and km_atual (filtered by tenant)
+        let updateViaturaQuery = supabase
           .from("viaturas")
           .update({ 
             status_operacional: "disponivel",
             km_atual: params.km_atual 
           })
           .eq("id", params.viatura_id)
+        updateViaturaQuery = addTenantFilter(updateViaturaQuery)
+        const { error: updateViaturaError } = await updateViaturaQuery
 
         if (updateViaturaError) throw updateViaturaError
 
         data = { devolucao, checklist: checklistDev }
         break
+      }
 
-      case 'save_checkout_photos':
+      case 'save_checkout_photos': {
         if (!params.photos || !Array.isArray(params.photos)) {
           throw new Error("Photos array is required")
         }
 
+        // Add tenant to photos
+        const photosWithTenant = params.photos.map((photo: any) => ({
+          ...photo,
+          tenant: userTenant
+        }))
+
         const { error: checkoutPhotosError } = await supabase
           .from("fotos_checklist")
-          .insert(params.photos)
+          .insert(photosWithTenant)
 
         if (checkoutPhotosError) throw checkoutPhotosError
 
         data = { success: true }
         break
+      }
 
       default:
         throw new Error(`Unknown action: ${action}`)
