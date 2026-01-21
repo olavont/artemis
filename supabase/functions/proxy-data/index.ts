@@ -129,7 +129,7 @@ Deno.serve(async (req) => {
           .from('protocolos_empenho')
           .select(`
             *,
-            viaturas (prefixo, placa, marca, modelo, km_inicial, km_atual),
+            viaturas (id, prefixo, placa, marca, modelo, km_inicial, km_atual),
             profiles!protocolos_empenho_agente_responsavel_id_fkey (nome, matricula),
             checklists_veiculo (
               id,
