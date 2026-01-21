@@ -13,7 +13,9 @@ export function getKeycloakUserId(): string | null {
     try {
       const userData = JSON.parse(keycloakUser);
       console.log("[useProxyData] Keycloak user data:", userData);
-      return userData.sub || null;
+      // Some environments store the Keycloak subject under `sub`, others may persist it as `id`
+      // (historical/legacy localStorage format). Support both.
+      return userData.sub || userData.id || null;
     } catch (e) {
       console.error("[useProxyData] Error parsing keycloak_user:", e);
       return null;
