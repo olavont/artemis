@@ -468,6 +468,93 @@ Deno.serve(async (req) => {
         }
         break
 
+      case 'create_checkout':
+        // Create return protocol (devolução)
+        const { data: devolucao, error: devolucaoError } = await supabase
+          .from("protocolos_devolucao")
+          .insert({
+            protocolo_empenho_id: params.protocolo_empenho_id,
+            agente_responsavel_id: userId,
+            nome_agente: params.nome_agente,
+            observacoes: params.observacoes,
+            local_devolucao: params.local_devolucao,
+            latitude_devolucao: params.latitude_devolucao,
+            longitude_devolucao: params.longitude_devolucao
+          })
+          .select()
+          .single()
+
+        if (devolucaoError) throw devolucaoError
+
+        // Create checklist
+        const { data: checklistDev, error: checklistDevError } = await supabase
+          .from("checklists_veiculo")
+          .insert({
+            protocolo_devolucao_id: devolucao.id,
+            tipo_checklist: "devolucao",
+            km_atual: params.km_atual,
+            nivel_oleo: params.nivel_oleo,
+            nivel_combustivel: params.nivel_combustivel,
+            condicoes_mecanicas: params.condicoes_mecanicas,
+            observacoes: params.checklist_observacoes
+          })
+          .select()
+          .single()
+
+        if (checklistDevError) throw checklistDevError
+
+        // Insert checklist items
+        if (params.checklist_items && params.checklist_items.length > 0) {
+          const itemsToInsertDev = params.checklist_items.map((item: any) => ({
+            checklist_veiculo_id: checklistDev.id,
+            item_viatura_id: item.item_viatura_id,
+            situacao: item.situacao,
+            observacoes: item.observacoes
+          }))
+
+          const { error: itemsDevError } = await supabase
+            .from("checklist_itens")
+            .insert(itemsToInsertDev)
+
+          if (itemsDevError) throw itemsDevError
+        }
+
+        // Update protocol status
+        const { error: updateProtoError } = await supabase
+          .from("protocolos_empenho")
+          .update({ status: "concluido" })
+          .eq("id", params.protocolo_empenho_id)
+
+        if (updateProtoError) throw updateProtoError
+
+        // Update vehicle status and km_atual
+        const { error: updateViaturaError } = await supabase
+          .from("viaturas")
+          .update({ 
+            status_operacional: "disponivel",
+            km_atual: params.km_atual 
+          })
+          .eq("id", params.viatura_id)
+
+        if (updateViaturaError) throw updateViaturaError
+
+        data = { devolucao, checklist: checklistDev }
+        break
+
+      case 'save_checkout_photos':
+        if (!params.photos || !Array.isArray(params.photos)) {
+          throw new Error("Photos array is required")
+        }
+
+        const { error: checkoutPhotosError } = await supabase
+          .from("fotos_checklist")
+          .insert(params.photos)
+
+        if (checkoutPhotosError) throw checkoutPhotosError
+
+        data = { success: true }
+        break
+
       default:
         throw new Error(`Unknown action: ${action}`)
     }
