@@ -280,15 +280,76 @@ export default function CheckoutForm() {
       }
 
       const kmValue = parseInt(step1Data.km_atual);
+      const observacoesCompletas = `${step1Data.motivo}\n\n${observacaoGeral}`.trim();
 
-      // Create return protocol
+      // For Keycloak users, use proxy
+      if (isKeycloakUser()) {
+        // First upload photos (storage works without RLS for authenticated uploads)
+        const uploadedPhotos: { url: string; tipo: string }[] = [];
+        for (const photo of step4Data) {
+          const url = await uploadPhoto(photo, `temp-${Date.now()}`);
+          if (url) {
+            uploadedPhotos.push({ url, tipo: photo.tipo });
+          }
+        }
+
+        // Create checkout via proxy
+        const checklistItems = step3Data
+          .filter(item => item.situacao)
+          .map(item => ({
+            item_viatura_id: item.item_id,
+            situacao: item.situacao,
+            observacoes: item.observacao || null
+          }));
+
+        const { data: result, error: proxyError } = await proxyFetch<any>("create_checkout", {
+          protocolo_empenho_id: id,
+          viatura_id: protocolo.viaturas.id,
+          nome_agente: step1Data.agente_nome,
+          observacoes: observacoesCompletas,
+          local_devolucao: step1Data.local,
+          latitude_devolucao: step1Data.latitude,
+          longitude_devolucao: step1Data.longitude,
+          km_atual: kmValue,
+          nivel_oleo: step2Data.nivel_oleo,
+          nivel_combustivel: parseFloat(step2Data.nivel_combustivel.replace("/", ".")) || null,
+          condicoes_mecanicas: step2Data.condicoes_mecanicas,
+          checklist_observacoes: step2Data.condicoes_mecanicas_observacao || null,
+          checklist_items: checklistItems
+        });
+
+        if (proxyError) {
+          toast({ variant: "destructive", title: "Erro", description: proxyError.message });
+          setSaving(false);
+          return;
+        }
+
+        // Save photos via proxy
+        if (uploadedPhotos.length > 0 && result?.devolucao) {
+          const photosToSave = uploadedPhotos.map(p => ({
+            protocolo_devolucao_id: result.devolucao.id,
+            checklist_veiculo_id: result.checklist?.id || null,
+            tipo_foto: "veiculo_geral",
+            url_foto: p.url,
+            descricao: p.tipo
+          }));
+
+          await proxyFetch("save_checkout_photos", { photos: photosToSave });
+        }
+
+        toast({ title: "Check-Out realizado!", description: "Viatura devolvida com sucesso" });
+        navigate("/");
+        return;
+      }
+
+      // For Supabase users, use direct queries
       const { data: devolucao, error: devolucaoError } = await supabase
         .from("protocolos_devolucao")
         .insert({
           protocolo_empenho_id: id,
           agente_responsavel_id: userId,
           nome_agente: step1Data.agente_nome,
-          observacoes: `${step1Data.motivo}\n\n${observacaoGeral}`.trim(),
+          observacoes: observacoesCompletas,
           local_devolucao: step1Data.local,
           latitude_devolucao: step1Data.latitude,
           longitude_devolucao: step1Data.longitude
