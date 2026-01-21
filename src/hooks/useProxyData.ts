@@ -56,9 +56,9 @@ export async function proxyFetch<T>(
   // If Keycloak user, use proxy function
   if (isKeycloakUser()) {
     try {
-      const SUPABASE_URL = "https://scvjvglrzriqkirpotxq.supabase.co";
-      const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNjdmp2Z2xyenJpcWtpcnBvdHhxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ3MDEzNDMsImV4cCI6MjA4MDI3NzM0M30.fFTskWARW_cNgyioTb1HHEMZmOKFiLKdYHKAVduhgVw";
-      const functionUrl = `${SUPABASE_URL}/functions/v1/proxy-data`;
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const functionUrl = `${supabaseUrl}/functions/v1/proxy-data`;
 
       console.log("[useProxyData] Calling proxy-data:", { functionUrl, action, userId });
 
@@ -66,8 +66,8 @@ export async function proxyFetch<T>(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
-          "apikey": SUPABASE_ANON_KEY
+          "Authorization": `Bearer ${anonKey}`,
+          "apikey": anonKey
         },
         body: JSON.stringify({ action, userId, params }),
       });
