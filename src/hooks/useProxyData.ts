@@ -1,14 +1,22 @@
 import { supabase } from "@/integrations/supabase/client";
 
 export function isKeycloakUser(): boolean {
-  return !!localStorage.getItem("keycloak_user");
+  const keycloakUser = localStorage.getItem("keycloak_user");
+  console.log("[useProxyData] isKeycloakUser check:", !!keycloakUser);
+  return !!keycloakUser;
 }
 
 export function getKeycloakUserId(): string | null {
   const keycloakUser = localStorage.getItem("keycloak_user");
   if (keycloakUser) {
-    const userData = JSON.parse(keycloakUser);
-    return userData.sub;
+    try {
+      const userData = JSON.parse(keycloakUser);
+      console.log("[useProxyData] Keycloak user data:", userData);
+      return userData.sub || null;
+    } catch (e) {
+      console.error("[useProxyData] Error parsing keycloak_user:", e);
+      return null;
+    }
   }
   return null;
 }
@@ -16,10 +24,14 @@ export function getKeycloakUserId(): string | null {
 export async function getCurrentUserId(): Promise<string | null> {
   // Check Keycloak first
   const keycloakUserId = getKeycloakUserId();
-  if (keycloakUserId) return keycloakUserId;
+  if (keycloakUserId) {
+    console.log("[useProxyData] Using Keycloak userId:", keycloakUserId);
+    return keycloakUserId;
+  }
 
   // Otherwise check Supabase
   const { data: { user } } = await supabase.auth.getUser();
+  console.log("[useProxyData] Using Supabase userId:", user?.id);
   return user?.id || null;
 }
 
@@ -34,7 +46,10 @@ export async function proxyFetch<T>(
 ): Promise<ProxyResponse<T>> {
   const userId = await getCurrentUserId();
 
+  console.log("[useProxyData] proxyFetch called:", { action, userId, isKeycloak: isKeycloakUser() });
+
   if (!userId) {
+    console.error("[useProxyData] No userId found");
     return { data: null, error: new Error("User not authenticated") };
   }
 
@@ -42,26 +57,25 @@ export async function proxyFetch<T>(
   if (isKeycloakUser()) {
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
       const functionUrl = `${supabaseUrl}/functions/v1/proxy-data`;
 
-      // Get the session token if available, or just send without auth if we're relying on internal logic (though Supabase functions usually require a key)
-      // For invoke, supabase-js adds the Authorization header. We need to match that.
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token || import.meta.env.VITE_SUPABASE_ANON_KEY;
+      console.log("[useProxyData] Calling proxy-data:", { functionUrl, action, userId });
 
       const response = await fetch(functionUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
+          "Authorization": `Bearer ${anonKey}`,
+          "apikey": anonKey
         },
         body: JSON.stringify({ action, userId, params }),
       });
 
       const responseData = await response.json();
+      console.log("[useProxyData] Proxy response:", responseData);
 
       if (!response.ok) {
-        // Now we can see the actual error message!
         return {
           data: null,
           error: new Error(responseData.error || `Error ${response.status}: ${JSON.stringify(responseData)}`)
@@ -74,6 +88,7 @@ export async function proxyFetch<T>(
 
       return { data: responseData.data, error: null };
     } catch (err) {
+      console.error("[useProxyData] Proxy error:", err);
       return { data: null, error: err as Error };
     }
   }
