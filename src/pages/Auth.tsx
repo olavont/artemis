@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { Capacitor } from "@capacitor/core";
 import { CapacitorHttp } from "@capacitor/core";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,29 @@ import { useToast } from "@/components/ui/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Shield, Key, Loader2, User, Lock } from "lucide-react";
 import logoColor from "@/assets/logoColor.svg";
+
+// Helper to make HTTP requests that works in both web and native
+async function httpPost(url: string, headers: Record<string, string>, data: string) {
+  if (Capacitor.isNativePlatform()) {
+    const response = await CapacitorHttp.post({ url, headers, data });
+    return { status: response.status, data: response.data };
+  } else {
+    const response = await fetch(url, { method: "POST", headers, body: data });
+    const responseData = await response.json().catch(() => ({}));
+    return { status: response.status, data: responseData };
+  }
+}
+
+async function httpGet(url: string, headers: Record<string, string>) {
+  if (Capacitor.isNativePlatform()) {
+    const response = await CapacitorHttp.get({ url, headers });
+    return { status: response.status, data: response.data };
+  } else {
+    const response = await fetch(url, { method: "GET", headers });
+    const responseData = await response.json().catch(() => ({}));
+    return { status: response.status, data: responseData };
+  }
+}
 
 export default function Auth() {
   const navigate = useNavigate();
@@ -52,13 +76,13 @@ export default function Auth() {
     setIsLoading(true);
 
     try {
-      const isDev = import.meta.env.DEV;
-      // In dev (web), use relative path to hit the Vite proxy. In prod (native), use full URL.
-      const keycloakBaseUrl = isDev ? "" : import.meta.env.VITE_KEYCLOAK_BASE_URL;
+      const isNative = Capacitor.isNativePlatform();
+      // In web (dev/prod), use relative path to hit the Vite proxy. In native, use full URL.
+      const keycloakBaseUrl = isNative ? import.meta.env.VITE_KEYCLOAK_BASE_URL : "";
       const realm = import.meta.env.VITE_KEYCLOAK_REALM;
       const clientId = import.meta.env.VITE_KEYCLOAK_CLIENT_ID;
 
-      if ((!keycloakBaseUrl && !isDev) || !realm || !clientId) {
+      if ((!keycloakBaseUrl && isNative) || !realm || !clientId) {
         throw new Error("Configurações do Keycloak ausentes no ambiente (.env)");
       }
 
@@ -70,11 +94,11 @@ export default function Auth() {
       tokenParams.append("password", password);
       tokenParams.append("scope", "openid profile email");
 
-      const tokenResponse = await CapacitorHttp.post({
-        url: `${keycloakBaseUrl}/realms/${realm}/protocol/openid-connect/token`,
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        data: tokenParams.toString(),
-      });
+      const tokenResponse = await httpPost(
+        `${keycloakBaseUrl}/realms/${realm}/protocol/openid-connect/token`,
+        { "Content-Type": "application/x-www-form-urlencoded" },
+        tokenParams.toString()
+      );
 
       if (tokenResponse.status !== 200) {
         const errorData = tokenResponse.data;
@@ -83,13 +107,11 @@ export default function Auth() {
 
       const tokenData = tokenResponse.data;
 
-      // 2. Get User Info via Native HTTP
-      const userInfoResponse = await CapacitorHttp.get({
-        url: `${keycloakBaseUrl}/realms/${realm}/protocol/openid-connect/userinfo`,
-        headers: {
-          Authorization: `Bearer ${tokenData.access_token}`,
-        },
-      });
+      // 2. Get User Info
+      const userInfoResponse = await httpGet(
+        `${keycloakBaseUrl}/realms/${realm}/protocol/openid-connect/userinfo`,
+        { Authorization: `Bearer ${tokenData.access_token}` }
+      );
 
       if (userInfoResponse.status !== 200) {
         throw new Error("Falha ao obter dados do usuário");
@@ -98,15 +120,9 @@ export default function Auth() {
       const userInfo = userInfoResponse.data;
 
       // 3. Uranus Role & Tenant Sync
-      // Fetch Groups
-      // In dev (web), use relative path "/uranus" which is proxied. In prod, use full URL.
-      // Note: VITE_URANUS_API_URL includes "/uranus" at the end, so for dev we just want empty string prefix if we proxy /uranus directly?
-      // Wait, VITE_URANUS_API_URL is "https://gateway.../uranus"
-      // Proxy maps "/uranus" -> "https://gateway..."
-      // So fetch for "/uranus/core/..." will hit "https://gateway.../uranus/core/..."
-      // Perfect.
-      const uranusApiUrl = isDev ? "/uranus" : import.meta.env.VITE_URANUS_API_URL;
-      const masterTenant = import.meta.env.VITE_URANUS_MASTER_TENANT || "des-aureaphigital"; // Fallback if missing
+      // In web, use relative path "/uranus" which is proxied. In native, use full URL.
+      const uranusApiUrl = isNative ? import.meta.env.VITE_URANUS_API_URL : "/uranus";
+      const masterTenant = import.meta.env.VITE_URANUS_MASTER_TENANT || "des-aureaphigital";
 
       if (!uranusApiUrl) {
         console.warn("URL da API Uranus não configurada.");
@@ -117,14 +133,14 @@ export default function Auth() {
 
       console.log(`Buscando dados Uranus para: ${uranusUsername}`);
 
-      const groupsResponse = await CapacitorHttp.get({
-        url: `${uranusApiUrl}/core/users/${uranusUsername}`,
-        headers: {
+      const groupsResponse = await httpGet(
+        `${uranusApiUrl}/core/users/${uranusUsername}`,
+        {
           "Authorization": `Bearer ${tokenData.access_token}`,
           "X-Tenant": masterTenant,
           "Content-Type": "application/json"
         }
-      });
+      );
 
       let appRole = "agente";
       let userTenant = null;
