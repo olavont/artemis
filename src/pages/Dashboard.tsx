@@ -28,19 +28,57 @@ export default function Dashboard() {
 
   const fetchStats = async () => {
     if (isKeycloakUser()) {
-      const { data, error } = await proxyFetch<any>("get_dashboard_stats");
-      if (!error && data?.viaturas) {
-        const viaturas = data.viaturas;
-        setStats({
-          totalViaturas: viaturas.length,
-          disponiveis: viaturas.filter((v: any) => v.status_operacional === "disponivel").length,
-          empenhadas: viaturas.filter((v: any) => v.status_operacional === "empenhada").length,
-          manutencao: viaturas.filter(
-            (v: any) =>
-              v.status_operacional === "manutencao" ||
-              v.status_operacional === "inoperante"
-          ).length,
-        });
+      const { data, error } = await proxyFetch<any>("get_dashboard_stats", { periodo });
+      if (!error && data) {
+        if (data.viaturas) {
+          const viaturas = data.viaturas;
+          setStats({
+            totalViaturas: viaturas.length,
+            disponiveis: viaturas.filter((v: any) => v.status_operacional === "disponivel").length,
+            empenhadas: viaturas.filter((v: any) => v.status_operacional === "empenhada").length,
+            manutencao: viaturas.filter(
+              (v: any) =>
+                v.status_operacional === "manutencao" ||
+                v.status_operacional === "inoperante"
+            ).length,
+          });
+        }
+        
+        // Process tempo médio from proxy
+        if (data.tempoMedioMinutos !== undefined && data.tempoMedioMinutos > 0) {
+          const horas = Math.floor(data.tempoMedioMinutos / 60);
+          const minutos = data.tempoMedioMinutos % 60;
+          setTempoMedioEmpenho(`${horas}h ${minutos}min`);
+        } else {
+          setTempoMedioEmpenho("0h 0min");
+        }
+        
+        // Process média km from proxy
+        if (data.mediaKm !== undefined && data.mediaKm > 0) {
+          setMediaKmPercorridos(data.mediaKm.toFixed(1));
+        } else {
+          setMediaKmPercorridos("0.0");
+        }
+        
+        // Process protocolos por dia from proxy
+        if (data.protocolosPorDia) {
+          const contagemPorDia: Record<string, number> = {};
+          for (let i = 0; i < periodo; i++) {
+            const dia = format(subDays(new Date(), periodo - i - 1), "dd/MM", { locale: ptBR });
+            contagemPorDia[dia] = 0;
+          }
+          data.protocolosPorDia.forEach((p: any) => {
+            const dia = format(new Date(p.data_hora_empenho), "dd/MM", { locale: ptBR });
+            if (contagemPorDia[dia] !== undefined) {
+              contagemPorDia[dia]++;
+            }
+          });
+          const dadosGrafico = Object.entries(contagemPorDia).map(([data, quantidade]) => ({
+            data,
+            quantidade,
+          }));
+          setProtocolosPorDia(dadosGrafico);
+        }
       }
       return;
     }
@@ -64,6 +102,11 @@ export default function Dashboard() {
   };
 
   const fetchProtocolosStats = async () => {
+    // Skip if Keycloak user - already handled in fetchStats
+    if (isKeycloakUser()) {
+      return;
+    }
+
     const dataInicio = startOfDay(subDays(new Date(), periodo));
 
     const { data: protocolos } = await supabase
