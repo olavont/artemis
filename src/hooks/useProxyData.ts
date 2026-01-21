@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "@/config/supabasePublic";
 
 export function isKeycloakUser(): boolean {
   const keycloakUser = localStorage.getItem("keycloak_user");
@@ -56,9 +57,7 @@ export async function proxyFetch<T>(
   // If Keycloak user, use proxy function
   if (isKeycloakUser()) {
     try {
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-      const functionUrl = `${supabaseUrl}/functions/v1/proxy-data`;
+      const functionUrl = `${SUPABASE_URL}/functions/v1/proxy-data`;
 
       console.log("[useProxyData] Calling proxy-data:", { functionUrl, action, userId });
 
@@ -66,8 +65,8 @@ export async function proxyFetch<T>(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${anonKey}`,
-          "apikey": anonKey
+          "Authorization": `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
+          "apikey": SUPABASE_PUBLISHABLE_KEY,
         },
         body: JSON.stringify({ action, userId, params }),
       });
