@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, ArrowRight, CheckCircle, Loader2 } from "lucide-react";
-import { getCurrentUserId } from "@/hooks/useProxyData";
+import { getCurrentUserId, isKeycloakUser, proxyFetch } from "@/hooks/useProxyData";
 import { Progress } from "@/components/ui/progress";
 import { CheckinStep1New } from "@/components/checkin/CheckinStep1New";
 import { CheckinStep2New } from "@/components/checkin/CheckinStep2New";
@@ -69,14 +69,38 @@ export default function CheckoutForm() {
   }, [id]);
 
   const fetchProtocolo = async () => {
+    if (isKeycloakUser()) {
+      // Use proxy for Keycloak users
+      const { data, error } = await proxyFetch<any>("get_protocolo", { id });
+      if (error || !data) {
+        toast({ variant: "destructive", title: "Erro", description: error?.message || "Protocolo não encontrado" });
+        navigate("/checkout");
+      } else {
+        // Map response to expected format
+        const mapped = {
+          ...data,
+          viaturas: data.viaturas
+        };
+        setProtocolo(mapped);
+        if (data.viaturas) {
+          fetchItems(data.viaturas.id);
+        }
+      }
+      setLoading(false);
+      return;
+    }
+
     const { data, error } = await supabase
       .from("protocolos_empenho")
       .select(`*, viaturas (id, prefixo, placa, marca, modelo, km_inicial, km_atual)`)
       .eq("id", id)
-      .single();
+      .maybeSingle();
 
     if (error) {
       toast({ variant: "destructive", title: "Erro", description: error.message });
+      navigate("/checkout");
+    } else if (!data) {
+      toast({ variant: "destructive", title: "Erro", description: "Protocolo não encontrado" });
       navigate("/checkout");
     } else {
       setProtocolo(data);
@@ -88,6 +112,21 @@ export default function CheckoutForm() {
   };
 
   const fetchItems = async (viaturaId: string) => {
+    if (isKeycloakUser()) {
+      const { data, error } = await proxyFetch<any[]>("get_viatura_itens_config", { viatura_id: viaturaId });
+      if (!error && data) {
+        const formattedItems = data
+          .filter((item: any) => item.itens_viatura)
+          .map((item: any) => ({
+            id: item.itens_viatura.id,
+            nome: item.itens_viatura.nome
+          }));
+        setItems(formattedItems);
+        setHasItems(formattedItems.length > 0);
+      }
+      return;
+    }
+
     const { data, error } = await supabase
       .from("viatura_itens_config")
       .select(`
