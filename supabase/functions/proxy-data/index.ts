@@ -436,37 +436,103 @@ Deno.serve(async (req) => {
         data = { success: true }
         break
 
-      case 'get_dashboard_stats':
-        if (isGestorOrAdmin) {
-          // Get vehicle counts by status
-          const viaturasResult = await supabase
-            .from('viaturas')
-            .select('status_operacional')
+      case 'get_dashboard_stats': {
+        const periodo = params?.periodo || 7
+        const dataInicio = new Date()
+        dataInicio.setDate(dataInicio.getDate() - periodo)
+        dataInicio.setHours(0, 0, 0, 0)
+        const dataInicioISO = dataInicio.toISOString()
 
-          const protocolosAtivosResult = await supabase
-            .from('protocolos_empenho')
-            .select('id')
-            .eq('status', 'em_andamento')
+        // Get vehicle counts by status
+        const viaturasResult = await supabase
+          .from('viaturas')
+          .select('status_operacional')
 
-          data = {
-            viaturas: viaturasResult.data,
-            protocolosAtivos: protocolosAtivosResult.data?.length || 0
+        // Get protocols with completions for time average
+        const protocolosCompletosResult = await supabase
+          .from('protocolos_empenho')
+          .select(`
+            id,
+            data_hora_empenho,
+            protocolos_devolucao(data_hora_devolucao)
+          `)
+          .gte('data_hora_empenho', dataInicioISO)
+
+        // Get checklists for km average
+        const checklistsEmpenhoResult = await supabase
+          .from('checklists_veiculo')
+          .select(`
+            km_atual,
+            protocolo_empenho_id
+          `)
+          .eq('tipo_checklist', 'empenho')
+          .not('protocolo_empenho_id', 'is', null)
+
+        const checklistsDevolucaoResult = await supabase
+          .from('checklists_veiculo')
+          .select(`
+            km_atual,
+            protocolo_devolucao_id,
+            protocolos_devolucao(protocolo_empenho_id)
+          `)
+          .eq('tipo_checklist', 'devolucao')
+          .not('protocolo_devolucao_id', 'is', null)
+
+        // Get protocols by day for chart
+        const protocolosPorDiaResult = await supabase
+          .from('protocolos_empenho')
+          .select('data_hora_empenho')
+          .gte('data_hora_empenho', dataInicioISO)
+
+        // Calculate time average
+        let tempoMedioMinutos = 0
+        if (protocolosCompletosResult.data) {
+          let totalMinutos = 0
+          let count = 0
+          protocolosCompletosResult.data.forEach((p: any) => {
+            if (p.protocolos_devolucao && p.protocolos_devolucao.length > 0) {
+              const empenho = new Date(p.data_hora_empenho)
+              const devolucao = new Date(p.protocolos_devolucao[0].data_hora_devolucao)
+              const diffMinutos = Math.floor((devolucao.getTime() - empenho.getTime()) / (1000 * 60))
+              if (diffMinutos > 0) {
+                totalMinutos += diffMinutos
+                count++
+              }
+            }
+          })
+          if (count > 0) {
+            tempoMedioMinutos = Math.floor(totalMinutos / count)
           }
-          error = viaturasResult.error || protocolosAtivosResult.error
-        } else {
-          // Agent sees only their active protocols
-          const meusProtocolosResult = await supabase
-            .from('protocolos_empenho')
-            .select('id')
-            .eq('agente_responsavel_id', userId)
-            .eq('status', 'em_andamento')
-
-          data = {
-            meusProtocolosAtivos: meusProtocolosResult.data?.length || 0
-          }
-          error = meusProtocolosResult.error
         }
+
+        // Calculate km average
+        let mediaKm = 0
+        if (checklistsEmpenhoResult.data && checklistsDevolucaoResult.data) {
+          let totalKm = 0
+          let count = 0
+          checklistsEmpenhoResult.data.forEach((empenho: any) => {
+            const devolucao = checklistsDevolucaoResult.data.find(
+              (d: any) => d.protocolos_devolucao?.protocolo_empenho_id === empenho.protocolo_empenho_id
+            )
+            if (devolucao && devolucao.km_atual > empenho.km_atual) {
+              totalKm += devolucao.km_atual - empenho.km_atual
+              count++
+            }
+          })
+          if (count > 0) {
+            mediaKm = totalKm / count
+          }
+        }
+
+        data = {
+          viaturas: viaturasResult.data,
+          protocolosPorDia: protocolosPorDiaResult.data || [],
+          tempoMedioMinutos,
+          mediaKm
+        }
+        error = viaturasResult.error
         break
+      }
 
       case 'create_checkout':
         // Create return protocol (devolução)
