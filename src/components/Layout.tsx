@@ -239,7 +239,18 @@ export default function Layout({ children }: LayoutProps) {
                   <span>{item.label}</span>
                 </NavLink>
               ))}
+              {/* User Info Mobile */}
               <div className="pt-4 border-t border-sidebar-border">
+                <div className="flex items-center gap-3 px-4 py-3 mb-2 rounded-lg bg-sidebar-accent/50">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-sidebar-foreground truncate">
+                      {profile?.nome || user.email}
+                    </p>
+                    <p className="text-xs text-sidebar-foreground/70 truncate capitalize">
+                      {profile?.perfil || "Usuário"}
+                    </p>
+                  </div>
+                </div>
                 <Button
                   variant="ghost"
                   onClick={handleLogout}
