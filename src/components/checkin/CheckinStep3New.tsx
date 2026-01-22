@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { isKeycloakUser, proxyFetch } from "@/hooks/useProxyData";
 
 interface EquipmentItem {
   id: string;
@@ -40,39 +41,65 @@ export function CheckinStep3New({ viaturaId, data, onChange }: CheckinStep3NewPr
   const fetchItems = async () => {
     setLoading(true);
     
-    const { data: configData, error } = await supabase
-      .from("viatura_itens_config")
-      .select(`
-        id,
-        quantidade_padrao,
-        obrigatoriedade,
-        itens_viatura (
+    let formattedItems: EquipmentItem[] = [];
+
+    // Use proxy for Keycloak users
+    if (isKeycloakUser()) {
+      const { data: proxyData, error: proxyError } = await proxyFetch<any[]>("get_viatura_itens_config", { viatura_id: viaturaId });
+      
+      if (proxyError) {
+        console.error("Error fetching items via proxy:", proxyError);
+        setLoading(false);
+        return;
+      }
+
+      formattedItems = (proxyData || [])
+        .filter(item => item.itens_viatura)
+        .map(item => ({
+          id: item.itens_viatura.id,
+          nome: item.itens_viatura.nome,
+          descricao: item.itens_viatura.descricao || null,
+          categoria: item.itens_viatura.categoria,
+          tipo: item.itens_viatura.tipo,
+          quantidade_padrao: item.quantidade_padrao || 1,
+          obrigatoriedade: item.obrigatoriedade
+        }));
+    } else {
+      // Direct Supabase query for regular users
+      const { data: configData, error } = await supabase
+        .from("viatura_itens_config")
+        .select(`
           id,
-          nome,
-          descricao,
-          categoria,
-          tipo
-        )
-      `)
-      .eq("viatura_id", viaturaId);
+          quantidade_padrao,
+          obrigatoriedade,
+          itens_viatura (
+            id,
+            nome,
+            descricao,
+            categoria,
+            tipo
+          )
+        `)
+        .eq("viatura_id", viaturaId);
 
-    if (error) {
-      console.error("Error fetching items:", error);
-      setLoading(false);
-      return;
+      if (error) {
+        console.error("Error fetching items:", error);
+        setLoading(false);
+        return;
+      }
+
+      formattedItems = (configData || [])
+        .filter(item => item.itens_viatura)
+        .map(item => ({
+          id: item.itens_viatura!.id,
+          nome: item.itens_viatura!.nome,
+          descricao: item.itens_viatura!.descricao,
+          categoria: item.itens_viatura!.categoria,
+          tipo: item.itens_viatura!.tipo,
+          quantidade_padrao: item.quantidade_padrao || 1,
+          obrigatoriedade: item.obrigatoriedade
+        }));
     }
-
-    const formattedItems: EquipmentItem[] = (configData || [])
-      .filter(item => item.itens_viatura)
-      .map(item => ({
-        id: item.itens_viatura!.id,
-        nome: item.itens_viatura!.nome,
-        descricao: item.itens_viatura!.descricao,
-        categoria: item.itens_viatura!.categoria,
-        tipo: item.itens_viatura!.tipo,
-        quantidade_padrao: item.quantidade_padrao || 1,
-        obrigatoriedade: item.obrigatoriedade
-      }));
 
     setItems(formattedItems);
 
