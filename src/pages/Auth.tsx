@@ -10,6 +10,14 @@ import { useToast } from "@/components/ui/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Shield, Key, Loader2, User, Lock } from "lucide-react";
 import logoColor from "@/assets/logoColor.svg";
+import {
+  KEYCLOAK_BASE_URL,
+  KEYCLOAK_CLIENT_ID,
+  KEYCLOAK_REALM,
+  URANUS_API_URL,
+  URANUS_MASTER_TENANT,
+} from "@/config/keycloakPublic";
+import { getKeycloakUserId } from "@/hooks/useProxyData";
 
 // Helper to make HTTP requests that works in both web and native
 async function httpPost(url: string, headers: Record<string, string>, data: string) {
@@ -44,8 +52,8 @@ export default function Auth() {
   useEffect(() => {
     // Check if already logged in locally
     const checkSession = async () => {
-      const keycloakUser = localStorage.getItem("keycloak_user");
-      if (keycloakUser) {
+      // Only consider Keycloak logged-in if payload contains a usable identifier.
+      if (getKeycloakUserId()) {
         navigate("/");
         return;
       }
@@ -77,14 +85,10 @@ export default function Auth() {
 
     try {
       const isNative = Capacitor.isNativePlatform();
-      // In web (dev/prod), use relative path to hit the Vite proxy. In native, use full URL.
-      const keycloakBaseUrl = isNative ? import.meta.env.VITE_KEYCLOAK_BASE_URL : "";
-      const realm = import.meta.env.VITE_KEYCLOAK_REALM;
-      const clientId = import.meta.env.VITE_KEYCLOAK_CLIENT_ID;
-
-      if ((!keycloakBaseUrl && isNative) || !realm || !clientId) {
-        throw new Error("Configurações do Keycloak ausentes no ambiente (.env)");
-      }
+      // Always use centralized public config (Lovable published apps may not have import.meta.env).
+      const keycloakBaseUrl = KEYCLOAK_BASE_URL;
+      const realm = KEYCLOAK_REALM;
+      const clientId = KEYCLOAK_CLIENT_ID;
 
       // 1. Get Token (Direct Access Grant)
       const tokenParams = new URLSearchParams();
@@ -119,14 +123,13 @@ export default function Auth() {
 
       const userInfo = userInfoResponse.data;
 
-      // 3. Uranus Role & Tenant Sync
-      // In web, use relative path "/uranus" which is proxied. In native, use full URL.
-      const uranusApiUrl = isNative ? import.meta.env.VITE_URANUS_API_URL : "/uranus";
-      const masterTenant = import.meta.env.VITE_URANUS_MASTER_TENANT || "des-aureaphigital";
-
-      if (!uranusApiUrl) {
-        console.warn("URL da API Uranus não configurada.");
+      if (!userInfo?.sub) {
+        throw new Error("Login inválido: 'sub' não retornado pelo /userinfo");
       }
+
+      // 3. Uranus Role & Tenant Sync
+      const uranusApiUrl = URANUS_API_URL;
+      const masterTenant = URANUS_MASTER_TENANT;
 
       // Username for Uranus seems to be preferred_username
       const uranusUsername = userInfo.preferred_username || username;
@@ -192,13 +195,14 @@ export default function Auth() {
         tenant: userTenant // New Field
       };
 
-      // Using 'as any' because 'tenant' column is not yet in the generated types
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .upsert(profileData as any);
+      // IMPORTANT: Keycloak users do not have a Supabase JWT, so direct upsert is blocked by RLS.
+      // Sync profile via proxy-data (service role).
+      const { data: syncResult, error: syncInvokeError } = await supabase.functions.invoke("proxy-data", {
+        body: { action: "sync_profile", userId: userInfo.sub, params: { profile: profileData } },
+      });
 
-      if (profileError) {
-        console.error("Erro ao sincronizar perfil:", profileError);
+      if (syncInvokeError || !syncResult?.success) {
+        console.error("Erro ao sincronizar perfil via proxy-data:", syncInvokeError || syncResult);
       }
 
       // Store Tenant in LocalStorage
@@ -206,10 +210,7 @@ export default function Auth() {
         localStorage.setItem("user_tenant", userTenant);
       }
 
-      if (profileError) {
-        console.error("Erro ao sincronizar perfil:", profileError);
-        // We continue even if sync fails, though data might be missing
-      }
+      // We continue even if sync fails, but data may be missing.
 
       // 5. Store Session
       localStorage.setItem("keycloak_user", JSON.stringify(userInfo));

@@ -23,6 +23,41 @@ Deno.serve(async (req) => {
 
     console.log(`Proxy request: action=${action}, userId=${userId}`)
 
+    // Special case: allow creating/updating the profile BEFORE enforcing "profile exists".
+    // This is required for Keycloak users that don't have a Supabase JWT (RLS blocks direct upserts from the frontend).
+    if (action === 'sync_profile') {
+      const incoming = params?.profile
+      if (!incoming?.id || incoming.id !== userId) {
+        throw new Error('Invalid profile payload (missing id or id mismatch)')
+      }
+
+      const upsertPayload = {
+        id: incoming.id,
+        nome: incoming.nome,
+        matricula: incoming.matricula ?? null,
+        perfil: incoming.perfil ?? 'agente',
+        ativo: incoming.ativo ?? true,
+        tenant: incoming.tenant ?? null,
+        updated_at: incoming.updated_at ?? new Date().toISOString(),
+      }
+
+      const { data: upserted, error: upsertError } = await supabase
+        .from('profiles')
+        .upsert(upsertPayload)
+        .select('id, nome, perfil, ativo, tenant')
+        .single()
+
+      if (upsertError) {
+        console.error('sync_profile upsert error:', upsertError)
+        throw upsertError
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, data: upserted }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      )
+    }
+
     // Verify user exists and get their role AND tenant
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
