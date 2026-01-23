@@ -35,13 +35,29 @@ export default function Layout({ children }: LayoutProps) {
       const keycloakUser = localStorage.getItem("keycloak_user");
 
       if (keycloakUser) {
-        const userData = JSON.parse(keycloakUser);
-        const keycloakId = userData.sub || userData.id;
-        setUser({ id: keycloakId, email: userData.email } as any);
-        // Fetch profile from database via proxy-data
-        if (keycloakId) fetchProfile(keycloakId);
-        setLoading(false);
-        return;
+        try {
+          const userData = JSON.parse(keycloakUser);
+          const keycloakId = userData?.sub || userData?.id;
+
+          // If we don't have a real identifier, treat as invalid session and fall back.
+          if (!keycloakId) {
+            console.warn("[Layout] Invalid keycloak_user payload (missing sub/id). Cleaning up local session.");
+            localStorage.removeItem("keycloak_user");
+            localStorage.removeItem("keycloak_tokens");
+            localStorage.removeItem("user_tenant");
+          } else {
+            setUser({ id: keycloakId, email: userData.email } as any);
+            // Fetch profile from database via proxy-data
+            fetchProfile(keycloakId);
+            setLoading(false);
+            return;
+          }
+        } catch (e) {
+          console.warn("[Layout] Failed to parse keycloak_user. Cleaning up local session.", e);
+          localStorage.removeItem("keycloak_user");
+          localStorage.removeItem("keycloak_tokens");
+          localStorage.removeItem("user_tenant");
+        }
       }
 
       // Otherwise check Supabase session
@@ -93,8 +109,19 @@ export default function Layout({ children }: LayoutProps) {
   };
 
   useEffect(() => {
-    const keycloakUser = localStorage.getItem("keycloak_user");
-    if (!loading && user === null && session === null && !keycloakUser) {
+    // Only consider Keycloak session valid if it contains sub/id.
+    const raw = localStorage.getItem("keycloak_user");
+    let hasValidKeycloak = false;
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        hasValidKeycloak = !!(parsed?.sub || parsed?.id);
+      } catch {
+        hasValidKeycloak = false;
+      }
+    }
+
+    if (!loading && user === null && session === null && !hasValidKeycloak) {
       navigate("/auth");
     }
   }, [user, session, loading, navigate]);

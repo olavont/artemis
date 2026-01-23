@@ -2,9 +2,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "@/config/supabasePublic";
 
 export function isKeycloakUser(): boolean {
-  const keycloakUser = localStorage.getItem("keycloak_user");
-  console.log("[useProxyData] isKeycloakUser check:", !!keycloakUser);
-  return !!keycloakUser;
+  // Only treat as Keycloak session if we actually have a usable identifier.
+  // This prevents the app from entering a "Keycloak mode" with an empty/invalid payload (e.g. "{}").
+  const id = getKeycloakUserId();
+  console.log("[useProxyData] isKeycloakUser check:", !!id);
+  return !!id;
 }
 
 export function getKeycloakUserId(): string | null {
@@ -15,9 +17,24 @@ export function getKeycloakUserId(): string | null {
       console.log("[useProxyData] Keycloak user data:", userData);
       // Some environments store the Keycloak subject under `sub`, others may persist it as `id`
       // (historical/legacy localStorage format). Support both.
-      return userData.sub || userData.id || null;
+      const id = userData?.sub || userData?.id || null;
+
+      // If payload is present but doesn't contain an identifier, it's an invalid session.
+      // Clean it up so the app can fall back to Supabase auth (or force a fresh Keycloak login).
+      if (!id) {
+        console.warn("[useProxyData] Invalid keycloak_user payload (missing sub/id). Cleaning up local session.");
+        localStorage.removeItem("keycloak_user");
+        localStorage.removeItem("keycloak_tokens");
+        localStorage.removeItem("user_tenant");
+      }
+
+      return id;
     } catch (e) {
       console.error("[useProxyData] Error parsing keycloak_user:", e);
+      // Corrupted value: cleanup to avoid getting stuck in Keycloak mode.
+      localStorage.removeItem("keycloak_user");
+      localStorage.removeItem("keycloak_tokens");
+      localStorage.removeItem("user_tenant");
       return null;
     }
   }
@@ -49,7 +66,10 @@ export async function proxyFetch<T>(
 ): Promise<ProxyResponse<T>> {
   const userId = await getCurrentUserId();
 
-  console.log("[useProxyData] proxyFetch called:", { action, userId, isKeycloak: isKeycloakUser() });
+  const keycloakId = getKeycloakUserId();
+  const keycloak = !!keycloakId;
+
+  console.log("[useProxyData] proxyFetch called:", { action, userId, isKeycloak: keycloak });
 
   if (!userId) {
     console.error("[useProxyData] No userId found");
@@ -57,7 +77,7 @@ export async function proxyFetch<T>(
   }
 
   // If Keycloak user, use proxy function
-  if (isKeycloakUser()) {
+  if (keycloak) {
     try {
       const functionUrl = `${SUPABASE_URL}/functions/v1/proxy-data`;
 
