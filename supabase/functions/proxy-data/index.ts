@@ -58,6 +58,48 @@ Deno.serve(async (req) => {
       )
     }
 
+    // Special case: allow fetching Uranus user data BEFORE enforcing "profile exists".
+    // Reason: web browsers can fail with CORS when calling Uranus directly.
+    if (action === 'get_uranus_user') {
+      const accessToken = params?.access_token
+      const username = params?.username
+
+      if (!accessToken || !username) {
+        throw new Error('Missing params.access_token or params.username')
+      }
+
+      const uranusApiUrl = Deno.env.get('URANUS_API_URL')
+      const masterTenant = Deno.env.get('URANUS_TENANT')
+
+      if (!uranusApiUrl || !masterTenant) {
+        throw new Error('Uranus configuration missing (URANUS_API_URL / URANUS_TENANT)')
+      }
+
+      const url = `${uranusApiUrl.replace(/\/$/, '')}/core/users/${encodeURIComponent(username)}`
+      console.log(`[get_uranus_user] Fetching Uranus user: ${username}`)
+
+      const resp = await fetch(url, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'X-Tenant': masterTenant,
+          'Content-Type': 'application/json',
+        },
+      })
+
+      const json = await resp.json().catch(() => ({}))
+
+      if (!resp.ok) {
+        console.error('[get_uranus_user] Uranus error:', resp.status, json)
+        throw new Error(`Uranus request failed (${resp.status})`)
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, data: json }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      )
+    }
+
     // Verify user exists and get their role AND tenant
     const { data: profile, error: profileError } = await supabase
       .from('profiles')

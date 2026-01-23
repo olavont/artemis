@@ -14,8 +14,6 @@ import {
   KEYCLOAK_BASE_URL,
   KEYCLOAK_CLIENT_ID,
   KEYCLOAK_REALM,
-  URANUS_API_URL,
-  URANUS_MASTER_TENANT,
 } from "@/config/keycloakPublic";
 import { getKeycloakUserId } from "@/hooks/useProxyData";
 
@@ -128,60 +126,50 @@ export default function Auth() {
       }
 
       // 3. Uranus Role & Tenant Sync
-      const uranusApiUrl = URANUS_API_URL;
-      const masterTenant = URANUS_MASTER_TENANT;
-
       // Username for Uranus seems to be preferred_username
       const uranusUsername = userInfo.preferred_username || username;
-
-      console.log(`Buscando dados Uranus para: ${uranusUsername}`);
-
-      const groupsResponse = await httpGet(
-        `${uranusApiUrl}/core/users/${uranusUsername}`,
-        {
-          "Authorization": `Bearer ${tokenData.access_token}`,
-          "X-Tenant": masterTenant,
-          "Content-Type": "application/json"
-        }
-      );
 
       let appRole = "agente";
       let userTenant = null;
 
-      if (groupsResponse.status === 200) {
-        const uranusData = groupsResponse.data;
-        const userData = uranusData.data || uranusData;
+      // IMPORTANT (web): Uranus endpoint can fail due to CORS.
+      // Fetch Uranus data via Supabase Edge Function (server-side) to avoid browser CORS issues.
+      const { data: uranusResult, error: uranusInvokeError } = await supabase.functions.invoke("proxy-data", {
+        body: {
+          action: "get_uranus_user",
+          userId: userInfo.sub,
+          params: {
+            access_token: tokenData.access_token,
+            username: uranusUsername,
+          },
+        },
+      });
 
-        // Map Tenant
-        // Procura por um campo tenant, ou tenta extrair dos grupos ex: "tenant:saas2-detranpa" ou usa o próprio contexto
-        // SE NÃO TIVER explícito, assumimos que o exemplo do user 'saas2-detranpa' vem de algum lugar. 
-        // Vou assumir que o objeto de usuário retorna o tenant ou está dentro de 'attributes'.
-        // Mas como não tenho o JSON exato, vou salvar o que vier em 'tenant' ou 'realm' ou fallback.
-        // *CRITICAL*: User request implies logic is needed. "Mapeamento do tenant".
-        // Vou adicionar uma lógica genérica que tenta pegar de 'tenant' no root ou attributes.
-        userTenant = userData.tenant || (userData.attributes && userData.attributes.tenant ? userData.attributes.tenant[0] : null);
+      if (uranusInvokeError || !uranusResult?.success) {
+        console.warn("Falha ao buscar dados Uranus via proxy-data", uranusInvokeError || uranusResult);
+      } else {
+        const uranusData = uranusResult.data;
+        const userData = uranusData?.data || uranusData;
 
-        // Fallback: Tentar extrair de grupos se tiver padrão "tenant_nome" ? 
-        // O user deu exemplo: "saas2-detranpa".
-        // Se vier null, vou deixar null e o trigger backend ou admin define, ou usar o masterTenant.
+        userTenant =
+          userData?.tenant ||
+          (userData?.attributes?.tenant ? userData.attributes.tenant[0] : null);
 
-        const groups = userData.groups || [];
-        const activeGroups = groups.filter((g: any) => g.active);
+        const groups = userData?.groups || [];
+        const activeGroups = groups.filter((g: any) => g?.active);
         const groupIdentifiers = activeGroups.flatMap((g: any) => [
-          (g.name || "").toLowerCase(),
-          (g.alias || "").toLowerCase()
+          String(g?.name || "").toLowerCase(),
+          String(g?.alias || "").toLowerCase(),
         ]);
 
         const isGestorOrAdmin = groupIdentifiers.some((id: string) =>
-          id.includes('administrador') ||
-          id.includes('supervisor') ||
-          id.includes('admin') ||
-          id.includes('gestor')
+          id.includes("administrador") ||
+          id.includes("supervisor") ||
+          id.includes("admin") ||
+          id.includes("gestor")
         );
 
         if (isGestorOrAdmin) appRole = "gestor";
-      } else {
-        console.warn("Falha ao buscar grupos Uranus", groupsResponse.status);
       }
 
       // 4. Sync to Supabase Profile with Tenant
