@@ -396,8 +396,13 @@ export default function Viaturas() {
                     <Input
                       id="placa"
                       value={formData.placa}
-                      onChange={(e) => setFormData({ ...formData, placa: e.target.value.toUpperCase() })}
+                      onChange={(e) => {
+                        // Only allow letters and numbers, max 7 characters
+                        const value = e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 7);
+                        setFormData({ ...formData, placa: value });
+                      }}
                       placeholder="ABC1234"
+                      maxLength={7}
                       required
                     />
                   </div>
@@ -406,8 +411,9 @@ export default function Viaturas() {
                     <Input
                       id="prefixo"
                       value={formData.prefixo}
-                      onChange={(e) => setFormData({ ...formData, prefixo: e.target.value })}
+                      onChange={(e) => setFormData({ ...formData, prefixo: e.target.value.slice(0, 40) })}
                       placeholder="VTR-001"
+                      maxLength={40}
                       required
                     />
                   </div>
@@ -416,8 +422,9 @@ export default function Viaturas() {
                     <Input
                       id="marca"
                       value={formData.marca}
-                      onChange={(e) => setFormData({ ...formData, marca: e.target.value })}
+                      onChange={(e) => setFormData({ ...formData, marca: e.target.value.slice(0, 40) })}
                       placeholder="Ex: Toyota"
+                      maxLength={40}
                       required
                     />
                   </div>
@@ -426,8 +433,9 @@ export default function Viaturas() {
                     <Input
                       id="modelo"
                       value={formData.modelo}
-                      onChange={(e) => setFormData({ ...formData, modelo: e.target.value })}
+                      onChange={(e) => setFormData({ ...formData, modelo: e.target.value.slice(0, 40) })}
                       placeholder="Ex: Hilux"
+                      maxLength={40}
                       required
                     />
                   </div>
@@ -437,8 +445,9 @@ export default function Viaturas() {
                       id="ano_fabricacao"
                       type="number"
                       value={formData.ano_fabricacao}
-                      onChange={(e) => setFormData({ ...formData, ano_fabricacao: e.target.value })}
+                      onChange={(e) => setFormData({ ...formData, ano_fabricacao: e.target.value.slice(0, 4) })}
                       placeholder="2024"
+                      maxLength={4}
                     />
                   </div>
                   <div className="space-y-2">
@@ -447,8 +456,9 @@ export default function Viaturas() {
                       id="km_inicial"
                       type="number"
                       value={formData.km_inicial}
-                      onChange={(e) => setFormData({ ...formData, km_inicial: e.target.value })}
+                      onChange={(e) => setFormData({ ...formData, km_inicial: e.target.value.slice(0, 7) })}
                       placeholder="0"
+                      maxLength={7}
                       required
                       disabled={isEditMode}
                     />
