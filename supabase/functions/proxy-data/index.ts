@@ -426,8 +426,8 @@ Deno.serve(async (req) => {
       }
 
       case 'delete_viatura': {
-        if (profile.perfil !== 'admin') {
-          throw new Error('Unauthorized: Only admins can delete vehicles')
+        if (!isGestorOrAdmin) {
+          throw new Error('Unauthorized: Only admins and gestors can delete vehicles')
         }
         let deleteQuery = supabase
           .from('viaturas')
