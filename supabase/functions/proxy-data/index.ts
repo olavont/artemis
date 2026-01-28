@@ -435,8 +435,17 @@ Deno.serve(async (req) => {
           .eq('id', params.id)
         deleteQuery = addTenantFilter(deleteQuery)
         const deleteResult = await deleteQuery
+        if (deleteResult.error) {
+          const errAny: any = deleteResult.error
+          // FK constraint: vehicle referenced by protocols
+          if (errAny?.code === '23503') {
+            throw new Error('Não é possível excluir esta viatura porque existem protocolos vinculados a ela.')
+          }
+          throw new Error(errAny?.message || 'Erro ao excluir viatura')
+        }
+
         data = { deleted: true }
-        error = deleteResult.error
+        error = null
         break
       }
 
@@ -800,9 +809,18 @@ Deno.serve(async (req) => {
     )
   } catch (error) {
     console.error('Error in proxy-data:', error)
+
+    const errAny: any = error
+    const message =
+      (errAny instanceof Error && errAny.message) ||
+      errAny?.message ||
+      errAny?.error_description ||
+      (typeof errAny === 'string' ? errAny : null) ||
+      'Unknown error'
+
     return new Response(
       JSON.stringify({
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: message,
         success: false
       }),
       {
