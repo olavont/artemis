@@ -27,6 +27,10 @@ export function CheckinStep4New({ data, onChange }: CheckinStep4NewProps) {
 
   const handleFileChange = (tipo: string, event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
+    
+    // Reset input value to allow re-selecting the same file
+    event.target.value = '';
+    
     if (!file) return;
 
     // Validate file type

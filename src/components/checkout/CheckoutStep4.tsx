@@ -111,6 +111,8 @@ export function CheckoutStep4({ data, onChange }: CheckoutStep4Props) {
                     onChange={(e) => {
                       const file = e.target.files?.[0] || null;
                       handleFileChange(photoType.id, file);
+                      // Reset input to allow re-selecting the same file
+                      e.target.value = '';
                     }}
                   />
                 </label>
