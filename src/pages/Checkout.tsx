@@ -60,26 +60,31 @@ export default function Checkout() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {protocolos.map((protocolo) => (
-            <Card key={protocolo.id} className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => navigate(`/checkout/${protocolo.id}`)}>
+            <Card key={protocolo.id} className="hover:shadow-md transition-shadow cursor-pointer w-full min-w-0 overflow-hidden" onClick={() => navigate(`/checkout/${protocolo.id}`)}>
               <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Car className="w-5 h-5" />
+                <div className="flex items-start justify-between gap-2">
+                  <CardTitle className="text-lg flex items-center gap-2 break-all flex-1 min-w-0">
+                    <Car className="w-5 h-5 shrink-0" />
                     {protocolo.viaturas?.prefixo}
                   </CardTitle>
-                  <Badge variant="secondary">
+                  <Badge variant="secondary" className="shrink-0">
                     <Clock className="w-3 h-3 mr-1" />
                     Em uso
                   </Badge>
                 </div>
-                <CardDescription>{protocolo.numero_protocolo}</CardDescription>
+                <CardDescription className="break-all mt-1">
+                  Modelo: {protocolo.viaturas?.modelo}
+                </CardDescription>
               </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground mb-2">
-                  {protocolo.profiles?.nome}
+              <CardContent className="space-y-1.5">
+                <p className="text-sm text-muted-foreground break-all">
+                  <span className="font-semibold text-foreground">Protocolo:</span> {protocolo.numero_protocolo}
                 </p>
-                <p className="text-xs text-muted-foreground">
-                  Desde: {format(new Date(protocolo.data_hora_empenho), "dd/MM/yyyy HH:mm")}
+                <p className="text-sm text-muted-foreground break-all">
+                  <span className="font-semibold text-foreground">Agente:</span> {protocolo.nome_agente || protocolo.profiles?.nome}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  <span className="font-semibold text-foreground">Desde:</span> {format(new Date(protocolo.data_hora_empenho), "dd/MM/yyyy HH:mm")}
                 </p>
                 <Button className="w-full mt-4 bg-secondary hover:bg-secondary/90 text-secondary-foreground">
                   Realizar Devolução

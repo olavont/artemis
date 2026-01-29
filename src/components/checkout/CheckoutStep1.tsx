@@ -32,8 +32,9 @@ export function CheckoutStep1({ data, onChange, vehicleInfo }: CheckoutStep1Prop
             id="km_atual"
             type="number"
             value={data.km_atual}
-            onChange={(e) => onChange("km_atual", e.target.value)}
+            onChange={(e) => onChange("km_atual", e.target.value.slice(0, 7))}
             placeholder="Ex: 50000"
+            maxLength={7}
             required
           />
         </div>

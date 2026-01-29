@@ -233,6 +233,43 @@ export default function CheckinForm() {
     const fileExt = photo.file.name.split('.').pop();
     const fileName = `${protocoloId}/${photo.tipo}.${fileExt}`;
 
+    if (isKeycloakUser()) {
+      // 1. Get signed URL from proxy
+      const { data: signedData, error: signedError } = await proxyFetch<any>("create_signed_upload_url", {
+        path: fileName,
+        bucket: "fotos-checklist"
+      });
+
+      if (signedError || !signedData?.signedUrl) {
+        console.error("Error getting signed URL:", signedError);
+        return null;
+      }
+
+      // 2. Upload to signed URL using fetch directly
+      try {
+        const uploadResp = await fetch(signedData.signedUrl, {
+          method: 'PUT',
+          body: photo.file,
+          headers: {
+            'Content-Type': photo.file.type || 'application/octet-stream',
+          }
+        });
+
+        if (!uploadResp.ok) {
+          throw new Error(`Upload failed: ${uploadResp.statusText}`);
+        }
+
+        const { data: { publicUrl } } = supabase.storage
+          .from("fotos-checklist")
+          .getPublicUrl(fileName);
+
+        return publicUrl;
+      } catch (err) {
+        console.error("Error uploading to signed URL:", err);
+        return null;
+      }
+    }
+
     const { error: uploadError } = await supabase.storage
       .from("fotos-checklist")
       .upload(fileName, photo.file);
@@ -266,6 +303,7 @@ export default function CheckinForm() {
         const { data: checkinData, error: checkinError } = await proxyFetch<any>("create_checkin", {
           viatura_id: id,
           nome_agente: step1Data.agente_nome,
+          agentes_acompanhantes: step1Data.agentes_acompanhantes, // Add this
           observacoes: `${step1Data.motivo}\n\n${observacaoGeral}`.trim(),
           local_empenho: step1Data.local,
           latitude_empenho: step1Data.latitude,
@@ -326,6 +364,7 @@ export default function CheckinForm() {
           viatura_id: id,
           agente_responsavel_id: userId,
           nome_agente: step1Data.agente_nome,
+          agentes_acompanhantes: step1Data.agentes_acompanhantes, // Add this
           observacoes: `${step1Data.motivo}\n\n${observacaoGeral}`.trim(),
           local_empenho: step1Data.local,
           latitude_empenho: step1Data.latitude,

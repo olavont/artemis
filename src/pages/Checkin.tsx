@@ -357,38 +357,38 @@ export default function Checkin() {
           {viewMode === "grid" ? (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {currentViaturas.map((viatura) => (
-                <Card key={viatura.id} className="hover:shadow-lg transition-shadow">
+                <Card key={viatura.id} className="hover:shadow-lg transition-shadow w-full min-w-0 overflow-hidden">
                   <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center justify-center w-12 h-12 bg-secondary/10 rounded-lg">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <div className="flex items-center justify-center w-12 h-12 bg-secondary/10 rounded-lg shrink-0">
                           <Car className="w-6 h-6 text-secondary" />
                         </div>
-                        <div>
-                          <CardTitle className="text-xl">{viatura.prefixo}</CardTitle>
-                          <CardDescription>{viatura.placa}</CardDescription>
+                        <div className="min-w-0 flex-1">
+                          <CardTitle className="text-xl break-all">{viatura.prefixo}</CardTitle>
+                          <CardDescription className="break-all">{viatura.placa}</CardDescription>
                         </div>
                       </div>
-                      <Badge className={getStatusColor(viatura.status_operacional)}>
+                      <Badge className={`${getStatusColor(viatura.status_operacional)} shrink-0`}>
                         Disponível
                       </Badge>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div className="space-y-2 text-sm">
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Car className="w-4 h-4" />
+                      <div className="flex items-center gap-2 text-muted-foreground break-all">
+                        <Car className="w-4 h-4 shrink-0" />
                         <span>{viatura.marca} {viatura.modelo}</span>
                       </div>
                       {viatura.ano_fabricacao && (
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Clock className="w-4 h-4" />
+                        <div className="flex items-center gap-2 text-muted-foreground break-all">
+                          <Clock className="w-4 h-4 shrink-0" />
                           <span>Ano: {viatura.ano_fabricacao}</span>
                         </div>
                       )}
                       {viatura.categoria && (
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <CheckCircle className="w-4 h-4" />
+                        <div className="flex items-center gap-2 text-muted-foreground break-all">
+                          <CheckCircle className="w-4 h-4 shrink-0" />
                           <span>{viatura.categoria}</span>
                         </div>
                       )}

@@ -173,8 +173,15 @@ export function CheckinStep1({ data, onChange, vehicleInfo, onLocationUpdate }: 
             type="number"
             placeholder="Ex: 50000"
             value={data.km_atual}
-            onChange={handleKmChange}
+            onChange={(e) => {
+              const value = e.target.value.slice(0, 7);
+              onChange("km_atual", value);
+              if (kmError) {
+                setKmError("");
+              }
+            }}
             onBlur={handleKmBlur}
+            maxLength={7}
             className={kmError ? "border-destructive" : ""}
           />
           {kmError && (

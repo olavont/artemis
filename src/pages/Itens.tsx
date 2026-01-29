@@ -69,45 +69,90 @@ export default function Itens() {
     e.preventDefault();
 
     if (editingItem) {
-      const { error } = await supabase
-        .from("itens_viatura")
-        .update(formData)
-        .eq("id", editingItem.id);
+      if (isKeycloakUser()) {
+        const { error } = await proxyFetch("update_item", {
+          id: editingItem.id,
+          item: formData
+        });
 
-      if (error) {
-        toast({
-          variant: "destructive",
-          title: "Erro ao atualizar item",
-          description: error.message,
-        });
+        if (error) {
+          toast({
+            variant: "destructive",
+            title: "Erro ao atualizar item",
+            description: error.message,
+          });
+        } else {
+          toast({
+            title: "Item atualizado!",
+            description: "O item foi atualizado com sucesso.",
+          });
+          setDialogOpen(false);
+          fetchItens();
+          resetForm();
+        }
       } else {
-        toast({
-          title: "Item atualizado!",
-          description: "O item foi atualizado com sucesso.",
-        });
-        setDialogOpen(false);
-        fetchItens();
-        resetForm();
+        const { error } = await supabase
+          .from("itens_viatura")
+          .update(formData)
+          .eq("id", editingItem.id);
+
+        if (error) {
+          toast({
+            variant: "destructive",
+            title: "Erro ao atualizar item",
+            description: error.message,
+          });
+        } else {
+          toast({
+            title: "Item atualizado!",
+            description: "O item foi atualizado com sucesso.",
+          });
+          setDialogOpen(false);
+          fetchItens();
+          resetForm();
+        }
       }
     } else {
-      const { error } = await supabase
-        .from("itens_viatura")
-        .insert([formData]);
+      if (isKeycloakUser()) {
+        const { error } = await proxyFetch("create_item", {
+          item: formData
+        });
 
-      if (error) {
-        toast({
-          variant: "destructive",
-          title: "Erro ao criar item",
-          description: error.message,
-        });
+        if (error) {
+          toast({
+            variant: "destructive",
+            title: "Erro ao criar item",
+            description: error.message,
+          });
+        } else {
+          toast({
+            title: "Item criado!",
+            description: "O item foi cadastrado com sucesso.",
+          });
+          setDialogOpen(false);
+          fetchItens();
+          resetForm();
+        }
       } else {
-        toast({
-          title: "Item criado!",
-          description: "O item foi cadastrado com sucesso.",
-        });
-        setDialogOpen(false);
-        fetchItens();
-        resetForm();
+        const { error } = await supabase
+          .from("itens_viatura")
+          .insert([formData]);
+
+        if (error) {
+          toast({
+            variant: "destructive",
+            title: "Erro ao criar item",
+            description: error.message,
+          });
+        } else {
+          toast({
+            title: "Item criado!",
+            description: "O item foi cadastrado com sucesso.",
+          });
+          setDialogOpen(false);
+          fetchItens();
+          resetForm();
+        }
       }
     }
   };
@@ -249,7 +294,7 @@ export default function Itens() {
               </div>
             </form>
           </DialogContent>
-      </Dialog>
+        </Dialog>
       </div>
 
       <div className="flex items-center gap-2">
@@ -273,26 +318,26 @@ export default function Itens() {
             item.descricao?.toLowerCase().includes(searchTerm.toLowerCase())
           )
           .map((item) => (
-          <Card key={item.id} className="hover:shadow-md transition-shadow">
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">{item.nome}</CardTitle>
-                <Button variant="ghost" size="icon" onClick={() => openEditDialog(item)}>
-                  <Pencil className="w-4 h-4" />
-                </Button>
-              </div>
-              <div className="flex gap-2">
-                {getTipoBadge(item.tipo)}
-                {getCategoriaBadge(item.categoria)}
-              </div>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                {item.descricao || "Sem descrição"}
-              </p>
-            </CardContent>
-          </Card>
-        ))}
+            <Card key={item.id} className="hover:shadow-md transition-shadow">
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg">{item.nome}</CardTitle>
+                  <Button variant="ghost" size="icon" onClick={() => openEditDialog(item)}>
+                    <Pencil className="w-4 h-4" />
+                  </Button>
+                </div>
+                <div className="flex gap-2">
+                  {getTipoBadge(item.tipo)}
+                  {getCategoriaBadge(item.categoria)}
+                </div>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  {item.descricao || "Sem descrição"}
+                </p>
+              </CardContent>
+            </Card>
+          ))}
       </div>
 
       {itens.length === 0 && (

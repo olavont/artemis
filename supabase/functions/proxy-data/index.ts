@@ -69,7 +69,9 @@ Deno.serve(async (req) => {
       }
 
       const uranusApiUrl = Deno.env.get('URANUS_API_URL')
-      const masterTenant = Deno.env.get('URANUS_TENANT')
+      const masterTenant = params?.master_tenant || Deno.env.get('URANUS_TENANT')
+
+      console.log(`[get_uranus_user] Using masterTenant: ${masterTenant} for user: ${username}`)
 
       if (!uranusApiUrl || !masterTenant) {
         throw new Error('Uranus configuration missing (URANUS_API_URL / URANUS_TENANT)')
@@ -503,7 +505,8 @@ Deno.serve(async (req) => {
             latitude_empenho: params.latitude_empenho,
             longitude_empenho: params.longitude_empenho,
             status: 'em_andamento',
-            tenant: userTenant
+            tenant: userTenant,
+            agentes_acompanhantes: params.agentes_acompanhantes || [] // Add this
           })
           .select()
           .single()
@@ -702,7 +705,8 @@ Deno.serve(async (req) => {
             local_devolucao: params.local_devolucao,
             latitude_devolucao: params.latitude_devolucao,
             longitude_devolucao: params.longitude_devolucao,
-            tenant: userTenant
+            tenant: userTenant,
+            agentes_acompanhantes: params.agentes_acompanhantes || [] // Add this
           })
           .select()
           .single()
@@ -756,9 +760,9 @@ Deno.serve(async (req) => {
         // Update vehicle status and km_atual (filtered by tenant)
         let updateViaturaQuery = supabase
           .from("viaturas")
-          .update({ 
+          .update({
             status_operacional: "disponivel",
-            km_atual: params.km_atual 
+            km_atual: params.km_atual
           })
           .eq("id", params.viatura_id)
         updateViaturaQuery = addTenantFilter(updateViaturaQuery)
@@ -788,6 +792,57 @@ Deno.serve(async (req) => {
         if (checkoutPhotosError) throw checkoutPhotosError
 
         data = { success: true }
+        break
+      }
+
+      case 'create_item':
+        if (!isGestorOrAdmin) {
+          throw new Error('Unauthorized: Only gestors and admins can create items')
+        }
+        const itemData = { ...params.item, tenant: userTenant }
+        const createItemResult = await supabase
+          .from('itens_viatura')
+          .insert([itemData])
+          .select()
+          .single()
+        data = createItemResult.data
+        error = createItemResult.error
+        break
+
+      case 'update_item': {
+        if (!isGestorOrAdmin) {
+          throw new Error('Unauthorized: Only gestors and admins can update items')
+        }
+        let updateItemQuery = supabase
+          .from('itens_viatura')
+          .update(params.item)
+          .eq('id', params.id)
+        updateItemQuery = addTenantFilter(updateItemQuery)
+        const updateItemResult = await updateItemQuery.select().single()
+        data = updateItemResult.data
+        error = updateItemResult.error
+        break
+      }
+
+      case 'create_signed_upload_url': {
+        const bucket = params.bucket || 'fotos-checklist'
+        const path = params.path
+
+        if (!path) {
+          throw new Error('Path is required')
+        }
+
+        const { data: signedData, error: signedError } = await supabase
+          .storage
+          .from(bucket)
+          .createSignedUploadUrl(path)
+
+        if (signedError) {
+          throw signedError
+        }
+
+        data = signedData
+        error = null
         break
       }
 

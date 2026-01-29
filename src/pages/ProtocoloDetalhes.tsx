@@ -40,7 +40,7 @@ export default function ProtocoloDetalhes() {
   const fetchProtocolo = async () => {
     // Keycloak users do not have a Supabase session JWT, so we must use the proxy edge function.
     if (isKeycloakUser() && id) {
-      const { data, error } = await proxyFetch<any>("get_protocolo", { id });
+      const { data, error } = await proxyFetch<any>("get_protocolo_details", { id });
 
       if (error) {
         const msg = error.message || "";

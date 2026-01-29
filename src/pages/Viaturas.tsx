@@ -258,7 +258,7 @@ export default function Viaturas() {
       const itemsToInsert = selectedItems.map((item) => ({
         viatura_id: viaturaId,
         item_viatura_id: item.item_viatura_id,
-        quantidade_padrao: item.quantidade,
+        quantidade_padrao: Math.max(1, item.quantidade || 1),
         obrigatoriedade: "recomendado" as const,
       }));
 
@@ -513,8 +513,12 @@ export default function Viaturas() {
                           <Input
                             type="number"
                             min="1"
-                            value={item.quantidade}
-                            onChange={(e) => updateItemQuantity(item.item_viatura_id, parseInt(e.target.value) || 1)}
+                            maxLength={3}
+                            value={item.quantidade || ""}
+                            onChange={(e) => {
+                              const value = e.target.value.slice(0, 3);
+                              updateItemQuantity(item.item_viatura_id, value === "" ? 0 : parseInt(value));
+                            }}
                             className="w-20 h-8"
                           />
                           <Button
@@ -559,16 +563,18 @@ export default function Viaturas() {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {filteredViaturas.map((viatura) => (
-          <Card key={viatura.id} className="hover:shadow-md transition-shadow">
+          <Card key={viatura.id} className="hover:shadow-md transition-shadow w-full min-w-0 overflow-hidden">
             <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">{viatura.prefixo}</CardTitle>
-                {getStatusBadge(viatura.status_operacional)}
+              <div className="flex items-start justify-between gap-2">
+                <CardTitle className="text-lg break-all flex-1 min-w-0">{viatura.prefixo}</CardTitle>
+                <div className="shrink-0">
+                  {getStatusBadge(viatura.status_operacional)}
+                </div>
               </div>
               <CardDescription>{viatura.placa}</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground mb-4">
+              <p className="text-sm text-muted-foreground mb-4 break-all">
                 {viatura.marca} {viatura.modelo} {viatura.ano_fabricacao && `(${viatura.ano_fabricacao})`}
               </p>
               <div className="flex gap-2">

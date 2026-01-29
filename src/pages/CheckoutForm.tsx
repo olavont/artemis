@@ -28,7 +28,7 @@ export default function CheckoutForm() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
-  
+
   const [protocolo, setProtocolo] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -67,6 +67,16 @@ export default function CheckoutForm() {
   useEffect(() => {
     if (id) fetchProtocolo();
   }, [id]);
+
+  useEffect(() => {
+    if (protocolo) {
+      setStep1Data(prev => ({
+        ...prev,
+        agente_nome: protocolo.nome_agente || protocolo.profiles?.nome || "",
+        agentes_acompanhantes: protocolo.agentes_acompanhantes || [] // Add this
+      }));
+    }
+  }, [protocolo]);
 
   const fetchProtocolo = async () => {
     if (isKeycloakUser()) {
@@ -211,7 +221,7 @@ export default function CheckoutForm() {
         toast({ variant: "destructive", title: "Erro", description: "Todos os itens devem ser verificados" });
         return false;
       }
-      
+
       const missingObservation = step3Data.some(
         item => (item.situacao === "incompleto" || item.situacao === "ausente") && !item.observacao.trim()
       );
@@ -227,7 +237,7 @@ export default function CheckoutForm() {
     const requiredPhotos = ["frente", "lateral_esquerda", "lateral_direita", "traseira"];
     const uploadedTypes = step4Data.map(p => p.tipo);
     const missing = requiredPhotos.filter(t => !uploadedTypes.includes(t));
-    
+
     if (missing.length > 0) {
       toast({ variant: "destructive", title: "Erro", description: "Todas as 4 fotos são obrigatórias" });
       return false;
@@ -240,7 +250,7 @@ export default function CheckoutForm() {
     if (currentStep === 2 && !validateStep2()) return;
     if (currentStep === 3 && !validateStep3()) return;
     if (currentStep === 4 && !validateStep4()) return;
-    
+
     setCurrentStep(prev => Math.min(prev + 1, 5));
   };
 
@@ -251,7 +261,48 @@ export default function CheckoutForm() {
   const uploadPhoto = async (photo: PhotoData, devolucaoId: string) => {
     const fileExt = photo.file.name.split('.').pop();
     const fileName = `devolucao/${devolucaoId}/${photo.tipo}.${fileExt}`;
-    
+
+    if (isKeycloakUser()) {
+      // 1. Get signed URL from proxy
+      const { data: signedData, error: signedError } = await proxyFetch<any>("create_signed_upload_url", {
+        path: fileName,
+        bucket: "fotos-checklist"
+      });
+
+      if (signedError || !signedData?.signedUrl) {
+        console.error("Error getting signed URL:", signedError);
+        return null;
+      }
+
+      // 2. Upload to signed URL using fetch directly (bypassing supabase client)
+      try {
+        const uploadResp = await fetch(signedData.signedUrl, {
+          method: 'PUT',
+          body: photo.file,
+          headers: {
+            'Content-Type': photo.file.type || 'application/octet-stream',
+            // 'x-amz-acl': 'public-read' // Uncomment if needed per storage config
+          }
+        });
+
+        if (!uploadResp.ok) {
+          throw new Error(`Upload failed: ${uploadResp.statusText}`);
+        }
+
+        // Return the public URL or the path, depending on how we save it.
+        // Usually Supabase public URL format is:
+        const { data: { publicUrl } } = supabase.storage
+          .from("fotos-checklist")
+          .getPublicUrl(fileName);
+
+        return publicUrl;
+      } catch (err) {
+        console.error("Error uploading to signed URL:", err);
+        return null;
+      }
+    }
+
+    // Default Supabase upload
     const { error: uploadError } = await supabase.storage
       .from("fotos-checklist")
       .upload(fileName, photo.file);
@@ -306,6 +357,7 @@ export default function CheckoutForm() {
           protocolo_empenho_id: id,
           viatura_id: protocolo.viaturas.id,
           nome_agente: step1Data.agente_nome,
+          agentes_acompanhantes: step1Data.agentes_acompanhantes, // Add this
           observacoes: observacoesCompletas,
           local_devolucao: step1Data.local,
           latitude_devolucao: step1Data.latitude,
@@ -349,6 +401,7 @@ export default function CheckoutForm() {
           protocolo_empenho_id: id,
           agente_responsavel_id: userId,
           nome_agente: step1Data.agente_nome,
+          agentes_acompanhantes: step1Data.agentes_acompanhantes, // Add this
           observacoes: observacoesCompletas,
           local_devolucao: step1Data.local,
           latitude_devolucao: step1Data.latitude,
@@ -421,9 +474,9 @@ export default function CheckoutForm() {
       // Update vehicle status and km_atual
       await supabase
         .from("viaturas")
-        .update({ 
+        .update({
           status_operacional: "disponivel",
-          km_atual: kmValue 
+          km_atual: kmValue
         })
         .eq("id", protocolo.viaturas.id);
 
@@ -526,9 +579,9 @@ export default function CheckoutForm() {
             <ArrowRight className="w-4 h-4 ml-2" />
           </Button>
         ) : (
-          <Button 
-            type="button" 
-            onClick={handleSubmit} 
+          <Button
+            type="button"
+            onClick={handleSubmit}
             disabled={saving}
             className="bg-success hover:bg-success/90 text-success-foreground"
           >

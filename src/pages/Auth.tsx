@@ -45,6 +45,7 @@ export default function Auth() {
   const { toast } = useToast();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [client, setClient] = useState(KEYCLOAK_REALM);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -85,7 +86,8 @@ export default function Auth() {
       const isNative = Capacitor.isNativePlatform();
       // Always use centralized public config (Lovable published apps may not have import.meta.env).
       const keycloakBaseUrl = KEYCLOAK_BASE_URL;
-      const realm = KEYCLOAK_REALM;
+      // Use client input as realm if provided, otherwise default to config
+      const realm = client || KEYCLOAK_REALM;
       const clientId = KEYCLOAK_CLIENT_ID;
 
       // 1. Get Token (Direct Access Grant)
@@ -141,6 +143,7 @@ export default function Auth() {
           params: {
             access_token: tokenData.access_token,
             username: uranusUsername,
+            master_tenant: client || undefined // Pass dynamic client as master_tenant
           },
         },
       });
@@ -252,6 +255,21 @@ export default function Auth() {
                     placeholder="Digite seu usuário..."
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
+                    className="pl-9"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="client">Cliente</Label>
+                <div className="relative">
+                  <Shield className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="client"
+                    placeholder="Digite o código do cliente..."
+                    value={client}
+                    onChange={(e) => setClient(e.target.value)}
                     className="pl-9"
                     required
                   />
